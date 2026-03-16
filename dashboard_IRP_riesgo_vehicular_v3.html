@@ -456,7 +456,7 @@
     <div class="wrap">
         <h1>IRP - Indice de Riesgo Predictivo</h1>
         <div class="subtitle">
-            Tablero de Riesgo generado a partir de data del perido 1 al 10 de Marzo de 2026 para la flota ABC123.
+            Tablero de Riesgo generado a partir de data de la flota ABC123.
             El IRP unifica datos de flotas, ofreciendo la información estratégica para los equipos de suscripción y
             tarificación. De esta forma se valora el riesgo y reduce pérdidas actuando con mayor rapidez.
         </div>
@@ -464,8 +464,8 @@
         <div class="panel controls">
             <div class="control-block">
                 <div class="label">Rango de fechas</div>
-                <input type="date" id="startDate">
-                <input type="date" id="endDate">
+                <input type="date" id="startDate" value="2026-02-01">
+                <input type="date" id="endDate" value="2026-02-28">
                 <div style="font-size:11px;color:#9fb0d3;margin-top:4px">
                     El rango debe ser mínimo 7 días y máximo 30 días.
                 </div>
@@ -699,8 +699,8 @@
         const clearBtn = document.getElementById('clearBtn');
         const topRiskBtn = document.getElementById('topRiskBtn');
 
-let baseRows = [];
-let currentRows = [];
+        let baseRows = [];
+        let currentRows = [];
 
 
         function fmt(n, d = 1) {
@@ -820,14 +820,20 @@ let currentRows = [];
 
             const to10 = reductionTo(20);
             const to30 = reductionTo(10);
-            let hint = '';
+            let hint;
+
             if (irp <= 10) {
                 hint = `Con un IRP actual de <b>${fmt(irp, 1)}</b>, la flota ya califica para el <b>30% de descuento</b> en la póliza.`;
             } else if (irp <= 20) {
-                hint = `Con un IRP actual de <b>${fmt(irp, 1)}</b>, la flota ya califica para el <b>10% de descuento</b>. Para alcanzar el <b>30% de descuento</b>, debe bajar <b>${fmt(to30, 1)} puntos</b> hasta un IRP de 10 o menos.`;
+                hint = `Con un IRP actual de <b>${fmt(irp, 1)}</b>, la flota ya califica para el <b>10% de descuento</b>. 
+    Para alcanzar el <b>30% de descuento</b>, debe bajar <b>${fmt(to30, 1)} puntos</b> hasta un IRP de 10 o menos.`;
             } else {
-                hint = `Con un IRP actual de <b>${fmt(irp, 1)}</b>, la flota no tiene descuento. Debe bajar <b>${fmt(to10, 1)} puntos</b> para acceder al <b>10% de descuento</b> y <b>${fmt(to30, 1)} puntos</b> para obtener el <b>30% de descuento</b> en el precio de la póliza.`;
+                hint = `Con un IRP actual de <b>${fmt(irp, 1)}</b>, la flota no tiene descuento. 
+    Debe bajar <b>${fmt(to10, 1)} puntos</b> para acceder al <b>10% de descuento</b> 
+    y <b>${fmt(to30, 1)} puntos</b> para obtener el <b>30% de descuento</b> en el precio de la póliza.`;
             }
+
+            hint += getPredictiveInsight(agg);
             document.getElementById('discountHint').innerHTML = hint;
         }
         function groupDaily(selected) {
@@ -848,33 +854,33 @@ let currentRows = [];
             return `<text x="${x}" y="${y}" text-anchor="${anchor}" font-size="${size}" fill="${color}" font-weight="${weight}">${text}</text>`;
         }
         function renderDailyChart(rows) {
-            const mode = getDateRangeMode();
-
-            if (mode === "month") {
-                rows = groupByWeek(rows);
-            }
             const svg = document.getElementById('dailySvg');
             const W = 900, H = 300, ml = 42, mr = 16, mt = 16, mb = 42;
             const pw = W - ml - mr, ph = H - mt - mb;
-            const maxY = Math.max(1, ...rows.map(r => r.est_events));
+            const maxY = Math.max(1, ...rows.map(r => r.est_events || 0));
             let out = '';
-            // grid
+
             for (let i = 0; i <= 4; i++) {
                 const y = mt + ph - (ph * i / 4);
                 out += `<line x1="${ml}" y1="${y}" x2="${W - mr}" y2="${y}" stroke="rgba(255,255,255,.08)" />`;
                 out += svgText(ml - 6, y + 4, fmt(maxY * i / 4, 1), 'end');
             }
+
             const bw = rows.length ? Math.min(48, pw / Math.max(rows.length, 1) * 0.62) : 40;
+
             rows.forEach((r, i) => {
                 const x = ml + (pw / Math.max(rows.length, 1)) * (i + 0.5);
-                const h = (r.est_events / maxY) * ph;
+                const h = ((r.est_events || 0) / maxY) * ph;
                 const y = mt + ph - h;
+                const label = r.label || r.date;
+
                 out += `<rect x="${x - bw / 2}" y="${y}" width="${bw}" height="${h}" rx="6" fill="#57a6ff" opacity="0.92"/>`;
-                out += svgText(x, H - 16, r.date.slice(5), 'middle', 11);
+                out += svgText(x, H - 16, label, 'middle', 11);
             });
+
             svg.innerHTML = out;
-        }
-        function renderJourneyChart(rows) {
+        } function renderJourneyChart(rows) {
+
             const chart = document.getElementById('journeyChart');
             const dayKm = rows.reduce((s, r) => s + r.km_day, 0);
             const nightKm = rows.reduce((s, r) => s + r.km_night, 0);
@@ -935,31 +941,47 @@ let currentRows = [];
             const selected = selectedVehicles();
             const safe = selected.length ? selected : vehicleData.map(v => v.Vehículo);
             const agg = getAgg(safe);
+
             renderKpis(agg);
             renderDiscounts(agg);
-            const daily = groupDaily(safe);
-            renderDailyChart(daily);
-            renderJourneyChart(daily);
             renderTopVehicles(agg.rows);
             renderStates(safe);
-        }
 
+            const hasDates = document.getElementById("startDate").value && document.getElementById("endDate").value;
+
+            if (hasDates) {
+                updateRange();
+            } else {
+                const daily = groupDaily(safe).map(r => ({
+                    ...r,
+                    label: r.date.slice(5)
+                }));
+                baseRows = daily;
+                currentRows = daily;
+                renderDailyChart(currentRows);
+                renderJourneyChart(currentRows);
+            }
+        }
         function getDateRangeMode() {
             const s = new Date(document.getElementById("startDate").value);
             const e = new Date(document.getElementById("endDate").value);
 
-            if (!s || !e || isNaN(s) || isNaN(e)) return "week";
-
-            const diff = (e - s) / (1000 * 60 * 60 * 24);
-
-            if (diff < 7) {
-                alert("El rango mínimo es de una semana");
+            if (!document.getElementById("startDate").value || !document.getElementById("endDate").value) {
                 return "week";
             }
 
-            if (diff > 31) {
+            if (isNaN(s) || isNaN(e)) return "week";
+
+            const diff = Math.floor((e - s) / (1000 * 60 * 60 * 24)) + 1;
+
+            if (diff < 7) {
+                alert("El rango mínimo es de una semana");
+                return null;
+            }
+
+            if (diff > 30) {
                 alert("El rango máximo es un mes");
-                return "month";
+                return null;
             }
 
             return diff <= 10 ? "week" : "month";
@@ -973,66 +995,62 @@ let currentRows = [];
                 const key = "Semana " + week;
 
                 if (!weeks[key]) {
-                    weeks[key] = { date: key, est_events: 0 };
+                    weeks[key] = {
+                        label: key,
+                        est_events: 0,
+                        km_day: 0,
+                        km_night: 0
+                    };
                 }
 
-                weeks[key].est_events += r.est_events;
+                weeks[key].est_events += r.est_events || 0;
+                weeks[key].km_day += r.km_day || 0;
+                weeks[key].km_night += r.km_night || 0;
             });
 
             return Object.values(weeks);
         }
 
-function getRangeMode() {
 
-  const s = new Date(document.getElementById("startDate").value);
-  const e = new Date(document.getElementById("endDate").value);
+        function generateFakeData(days) {
+            const data = [];
 
-  if (!s || !e || isNaN(s) || isNaN(e)) return "week";
+            for (let i = 0; i < days; i++) {
+                const d = new Date();
+                d.setDate(d.getDate() - days + i);
 
-  const diff = (e - s) / (1000 * 60 * 60 * 24);
+                const kmDay = 80 + Math.random() * 120;
+                const kmNight = 20 + Math.random() * 60;
 
-  if (diff <= 10) return "week";
-  return "month";
-}
+                data.push({
+                    date: d.toISOString().slice(0, 10),
+                    est_events: Math.floor(4 + Math.random() * 10),
+                    km_day: kmDay,
+                    km_night: kmNight,
+                    km_total: kmDay + kmNight
+                });
+            }
 
-function generateFakeData(days){
+            return data;
+        }
+        function updateRange() {
+            const mode = getDateRangeMode();
+            if (!mode) return;
 
-  const data = [];
+            if (mode === "week") {
+                baseRows = generateFakeData(7);
+                currentRows = baseRows.map(r => ({
+                    ...r,
+                    label: r.date.slice(5)
+                }));
+            } else {
+                baseRows = generateFakeData(30);
+                currentRows = groupByWeek(baseRows);
+            }
 
-  for(let i=0;i<days;i++){
-
-    const d = new Date();
-    d.setDate(d.getDate()-days+i);
-
-    data.push({
-      date: d.toISOString().slice(0,10),
-      est_events: Math.floor(4 + Math.random()*10),
-      km_day: 80 + Math.random()*120,
-      km_night: 20 + Math.random()*60
-    });
-
-  }
-
-  return data;
-}
-
-function updateRange(){
-
-  const mode = getRangeMode();
-
-  if(mode==="week"){
-      baseRows = generateFakeData(7);
-      currentRows = baseRows;
-  }
-
-  if(mode==="month"){
-      baseRows = generateFakeData(30);
-      currentRows = groupByWeek(baseRows);
-  }
-
-  renderDailyChart(currentRows);
-
-}
+            renderDailyChart(currentRows);
+            renderJourneyChart(currentRows);
+        }
 
         allBtn.onclick = () => {
             Array.from(select.options).forEach(o => o.selected = true);
@@ -1049,12 +1067,59 @@ function updateRange(){
         };
         select.addEventListener('change', refresh);
 
-document.getElementById("startDate").addEventListener("change",updateRange);
-document.getElementById("endDate").addEventListener("change",updateRange);
+        document.getElementById("startDate").addEventListener("change", updateRange);
+        document.getElementById("endDate").addEventListener("change", updateRange);
 
 
         fillVehicles();
         refresh();
+
+        function getPredictiveInsight(agg) {
+            const T = agg.T || 0;
+            const irp = agg.IRP || 0;
+
+            if (!T || !agg.rows || !agg.rows.length) {
+                return "";
+            }
+
+            // conteo real de eventos usando los nombres correctos del dataset
+            let M = 0, G = 0, C = 0, F = 0, Ac = 0, Ca = 0;
+
+            agg.rows.forEach(v => {
+                M += +v.speed_moderate || 0;
+                G += +v.speed_severe || 0;
+                C += +v.speed_critical || 0;
+                F += +v.hard_brake || 0;
+                Ac += +v.hard_accel || 0;
+                Ca += +v.aggressive_turns || 0;
+            });
+
+            const impactos = [
+                { tipo: "Excesos críticos de velocidad", count: C, impacto: 360 / T },
+                { tipo: "Excesos graves de velocidad", count: G, impacto: 180 / T },
+                { tipo: "Excesos moderados de velocidad", count: M, impacto: 60 / T },
+                { tipo: "Curvas agresivas", count: Ca, impacto: 75 / T },
+                { tipo: "Frenados bruscos", count: F, impacto: 50 / T },
+                { tipo: "Aceleraciones bruscas", count: Ac, impacto: 50 / T }
+            ];
+
+            impactos.forEach(e => {
+                e.totalImpacto = e.count * e.impacto;
+            });
+
+            impactos.sort((a, b) => b.totalImpacto - a.totalImpacto);
+
+            const top = impactos[0];
+
+            if (!top || top.count <= 0) {
+                return `<br><br>No se identifican incidentes de conducción con impacto directo suficiente para proyectar una reducción adicional del IRP en la selección actual.`;
+            }
+
+            const reducir = Math.max(1, Math.round(top.count * 0.1));
+            const nuevoIRP = Math.max(0, irp - (reducir * top.impacto));
+
+            return `<br><br>Si reduce <b>${reducir}</b> incidentes de <b>${top.tipo}</b>, su IRP bajaría aproximadamente a <b>${fmt(nuevoIRP, 1)}</b>.`;
+        }
     </script>
 </body>
 
