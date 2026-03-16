@@ -4,6 +4,8 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <title>Dashboard IRP - Indice de Riesgo Predictivo</title>
     <style>
         :root {
@@ -449,6 +451,30 @@
                 text-align: left;
             }
         }
+
+        .date-picker {
+            background: #0f172a;
+            border: 1px solid rgba(255, 255, 255, .08);
+            border-radius: 10px;
+            padding: 10px 12px;
+            color: white;
+            width: 220px;
+            cursor: pointer;
+        }
+
+        .quick-ranges button {
+            background: #1e293b;
+            border: none;
+            padding: 6px 10px;
+            margin-right: 6px;
+            border-radius: 8px;
+            color: #cbd5f5;
+            cursor: pointer;
+        }
+
+        .quick-ranges button:hover {
+            background: #334155;
+        }
     </style>
 </head>
 
@@ -464,10 +490,15 @@
         <div class="panel controls">
             <div class="control-block">
                 <div class="label">Rango de fechas</div>
-                <input type="date" id="startDate" value="2026-02-01">
-                <input type="date" id="endDate" value="2026-02-28">
+                <input id="dateRange" class="date-picker" placeholder="Seleccionar rango de fechas">
+                <div class="quick-ranges">
+                    <button onclick="setQuickRange(7)">Últimos 7 días</button>
+                    <button onclick="setQuickRange(30)">Últimos 30 días</button>
+                    <button onclick="setPrevMonth()">Mes anterior</button>
+                    <button onclick="setQuickRange(180)">Últimos 6 meses</button>
+                    <button onclick="setQuickRange(365)">Último año</button>
+                </div>
                 <div style="font-size:11px;color:#9fb0d3;margin-top:4px">
-                    El rango debe ser mínimo 7 días y máximo 30 días.
                 </div>
             </div>
             <div class="control-block">
@@ -507,13 +538,13 @@
             </div>
             <div class="panel card">
 
-                <div class="kpi-title">Distancia Total</div>
+                <div class="kpi-title"> Distancia en Kilómetros</div>
 
                 <div class="grid-3">
 
                     <div>
                         <div class="kpi-value" id="distanceValue">-</div>
-                        <div class="kpi-sub">Kilómetros Totales</div>
+                        <div class="kpi-sub">Total</div>
                     </div>
 
                     <div>
@@ -523,7 +554,7 @@
 
                     <div>
                         <div class="kpi-value" id="distanceVehicle">-</div>
-                        <div class="kpi-sub">Km por vehículo / día</div>
+                        <div class="kpi-sub"> Promedio por vehículo / día</div>
                     </div>
 
                 </div>
@@ -531,13 +562,13 @@
             </div>
             <div class="panel card">
 
-                <div class="kpi-title">Tiempo en Funcionamiento</div>
+                <div class="kpi-title">Tiempo en Funcionamiento en Horas</div>
 
                 <div class="grid-3">
 
                     <div>
                         <div class="kpi-value" id="engineValue">-</div>
-                        <div class="kpi-sub">Horas totales</div>
+                        <div class="kpi-sub">Totales</div>
                     </div>
 
                     <div>
@@ -547,7 +578,7 @@
 
                     <div>
                         <div class="kpi-value" id="engineVehicle">-</div>
-                        <div class="kpi-sub">Horas por vehículo / día</div>
+                        <div class="kpi-sub">Promedio por vehículo / día</div>
                     </div>
 
                 </div>
@@ -687,9 +718,50 @@
                 para evitar que el término geográfico domine por completo el índice.
             </div>
         </div>
+        <div class="panel card">
+            <div class="section-title">Recomendaciones</div>
+            <div id="recommendations"></div>
+        </div>
     </div>
 
     <script>
+        const datePicker = flatpickr("#dateRange", {
+            mode: "range",
+            dateFormat: "Y-m-d",
+            defaultDate: ["2026-02-01", "2026-02-28"],
+            locale: "es",
+            onClose: function (selectedDates) {
+                if (selectedDates.length === 2) {
+                    const start = selectedDates[0];
+                    const end = selectedDates[1];
+                    const diff = (end - start) / (1000 * 60 * 60 * 24);
+                    updateRange(start, end, diff);
+                }
+            }
+        });
+
+        function setQuickRange(days) {
+            const end = new Date();
+            const start = new Date();
+            start.setDate(end.getDate() - (days - 1));
+
+            datePicker.setDate([start, end], true);
+
+            const diff = (end - start) / (1000 * 60 * 60 * 24);
+            updateRange(start, end, diff);
+        }
+
+        function setPrevMonth() {
+            const now = new Date();
+            const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            const end = new Date(now.getFullYear(), now.getMonth(), 0);
+
+            datePicker.setDate([start, end], true);
+
+            const diff = (end - start) / (1000 * 60 * 60 * 24);
+            updateRange(start, end, diff);
+        }
+
         const vehicleData = [{ "Vehículo": "TS0713", "ID": 20907, "distance_km": 2981.2, "distance_used_km": 2981.2, "engine_on_hours": 100.1, "IRP": 29.60865278243299, "speed_light": 0, "speed_moderate": 14, "speed_severe": 11, "speed_critical": 1, "hard_accel": 0, "hard_brake": 0, "aggressive_turns": 0, "speed_light_per_100km": 0.0, "speed_moderate_per_100km": 0.4696095532000537, "speed_severe_per_100km": 0.36897893465718506, "speed_critical_per_100km": 0.033543539514289546, "hard_accel_per_100km": 0.0, "hard_brake_per_100km": 0.0, "aggressive_turns_per_100km": 0.0, "night_km": 1933.2103783326143, "non_routine_km": 3491.9, "routine_pct": 33.33333333333333, "avg_state_risk": 35.50945927814303, "total_trips": 33.0, "geo_weighted_num": 1058.608, "route_routine_km": -510.7000000000003 }, { "Vehículo": "TS0727", "ID": 22525, "distance_km": 2.4, "distance_used_km": 2.4, "engine_on_hours": 3.0, "IRP": 17.650000000000002, "speed_light": 0, "speed_moderate": 0, "speed_severe": 0, "speed_critical": 0, "hard_accel": 0, "hard_brake": 0, "aggressive_turns": 0, "speed_light_per_100km": 0.0, "speed_moderate_per_100km": 0.0, "speed_severe_per_100km": 0.0, "speed_critical_per_100km": 0.0, "hard_accel_per_100km": 0.0, "hard_brake_per_100km": 0.0, "aggressive_turns_per_100km": 0.0, "night_km": 0.0, "non_routine_km": 2.7, "routine_pct": 0.0, "avg_state_risk": 32.0, "total_trips": 2.0, "geo_weighted_num": 0.768, "route_routine_km": -0.30000000000000027 }, { "Vehículo": "TS0728", "ID": 27474, "distance_km": 0.0, "distance_used_km": 0.0, "engine_on_hours": 0.0, "IRP": 0.0, "speed_light": 0, "speed_moderate": 0, "speed_severe": 0, "speed_critical": 0, "hard_accel": 0, "hard_brake": 0, "aggressive_turns": 0, "speed_light_per_100km": 0.0, "speed_moderate_per_100km": 0.0, "speed_severe_per_100km": 0.0, "speed_critical_per_100km": 0.0, "hard_accel_per_100km": 0.0, "hard_brake_per_100km": 0.0, "aggressive_turns_per_100km": 0.0, "night_km": 0.0, "non_routine_km": 0.0, "routine_pct": 0.0, "avg_state_risk": 0.0, "total_trips": 0.0, "geo_weighted_num": 0.0, "route_routine_km": 0.0 }, { "Vehículo": "TS0747", "ID": 23813, "distance_km": 2781.2, "distance_used_km": 2781.2, "engine_on_hours": 108.0, "IRP": 26.54532308276514, "speed_light": 34, "speed_moderate": 57, "speed_severe": 29, "speed_critical": 24, "hard_accel": 0, "hard_brake": 0, "aggressive_turns": 0, "speed_light_per_100km": 1.2224938875305624, "speed_moderate_per_100km": 2.049475046742413, "speed_severe_per_100km": 1.042715374658421, "speed_critical_per_100km": 0.8629368617862794, "hard_accel_per_100km": 0.0, "hard_brake_per_100km": 0.0, "aggressive_turns_per_100km": 0.0, "night_km": 1078.8568371857598, "non_routine_km": 2025.1, "routine_pct": 39.130434782608695, "avg_state_risk": 36.16065007910255, "total_trips": 23.0, "geo_weighted_num": 1005.7000000000002, "route_routine_km": 756.0999999999999 }, { "Vehículo": "TS0748", "ID": 22524, "distance_km": 3215.8, "distance_used_km": 3215.8, "engine_on_hours": 105.8, "IRP": 23.410519655463816, "speed_light": 0, "speed_moderate": 38, "speed_severe": 24, "speed_critical": 7, "hard_accel": 0, "hard_brake": 0, "aggressive_turns": 0, "speed_light_per_100km": 0.0, "speed_moderate_per_100km": 1.1816655264630884, "speed_severe_per_100km": 0.7463150693451085, "speed_critical_per_100km": 0.21767522855899, "hard_accel_per_100km": 0.0, "hard_brake_per_100km": 0.0, "aggressive_turns_per_100km": 0.0, "night_km": 1306.941940536037, "non_routine_km": 2909.5, "routine_pct": 40.74074074074074, "avg_state_risk": 27.15408296535854, "total_trips": 27.0, "geo_weighted_num": 873.221, "route_routine_km": 306.3000000000002 }, { "Vehículo": "TS0751", "ID": 12558, "distance_km": 0.0, "distance_used_km": 0.0, "engine_on_hours": 0.0, "IRP": 0.0, "speed_light": 0, "speed_moderate": 0, "speed_severe": 0, "speed_critical": 0, "hard_accel": 0, "hard_brake": 0, "aggressive_turns": 0, "speed_light_per_100km": 0.0, "speed_moderate_per_100km": 0.0, "speed_severe_per_100km": 0.0, "speed_critical_per_100km": 0.0, "hard_accel_per_100km": 0.0, "hard_brake_per_100km": 0.0, "aggressive_turns_per_100km": 0.0, "night_km": 0.0, "non_routine_km": 0.0, "routine_pct": 0.0, "avg_state_risk": 0.0, "total_trips": 0.0, "geo_weighted_num": 0.0, "route_routine_km": 0.0 }, { "Vehículo": "TS0755", "ID": 22755, "distance_km": 309.4, "distance_used_km": 309.4, "engine_on_hours": 17.7, "IRP": 11.945701357466064, "speed_light": 1, "speed_moderate": 0, "speed_severe": 0, "speed_critical": 0, "hard_accel": 0, "hard_brake": 0, "aggressive_turns": 0, "speed_light_per_100km": 0.32320620555914675, "speed_moderate_per_100km": 0.0, "speed_severe_per_100km": 0.0, "speed_critical_per_100km": 0.0, "hard_accel_per_100km": 0.0, "hard_brake_per_100km": 0.0, "aggressive_turns_per_100km": 0.0, "night_km": 0.6, "non_routine_km": 306.7, "routine_pct": 66.66666666666666, "avg_state_risk": 10.019392372333549, "total_trips": 3.0, "geo_weighted_num": 31.0, "route_routine_km": 2.6999999999999886 }, { "Vehículo": "TS0756", "ID": 23811, "distance_km": 2914.1, "distance_used_km": 2914.1, "engine_on_hours": 87.6, "IRP": 25.647832661396947, "speed_light": 0, "speed_moderate": 86, "speed_severe": 26, "speed_critical": 0, "hard_accel": 0, "hard_brake": 0, "aggressive_turns": 0, "speed_light_per_100km": 0.0, "speed_moderate_per_100km": 2.9511684568134244, "speed_severe_per_100km": 0.892213719501733, "speed_critical_per_100km": 0.0, "hard_accel_per_100km": 0.0, "hard_brake_per_100km": 0.0, "aggressive_turns_per_100km": 0.0, "night_km": 1526.161943905123, "non_routine_km": 1575.2, "routine_pct": 71.42857142857143, "avg_state_risk": 45.049792388730644, "total_trips": 56.0, "geo_weighted_num": 1312.7959999999998, "route_routine_km": 1338.8999999999999 }, { "Vehículo": "TS0757", "ID": 22625, "distance_km": 0.0, "distance_used_km": 17.8, "engine_on_hours": 0.6, "IRP": 12.134831460674157, "speed_light": 0, "speed_moderate": 0, "speed_severe": 0, "speed_critical": 0, "hard_accel": 0, "hard_brake": 0, "aggressive_turns": 0, "speed_light_per_100km": 0.0, "speed_moderate_per_100km": 0.0, "speed_severe_per_100km": 0.0, "speed_critical_per_100km": 0.0, "hard_accel_per_100km": 0.0, "hard_brake_per_100km": 0.0, "aggressive_turns_per_100km": 0.0, "night_km": 0.0, "non_routine_km": 17.8, "routine_pct": 0.0, "avg_state_risk": 10.674157303370785, "total_trips": 7.0, "geo_weighted_num": 1.9000000000000001, "route_routine_km": 0.0 }, { "Vehículo": "TS0758", "ID": 24409, "distance_km": 2871.4, "distance_used_km": 2871.4, "engine_on_hours": 69.0, "IRP": 27.019368922825933, "speed_light": 0, "speed_moderate": 11, "speed_severe": 3, "speed_critical": 0, "hard_accel": 0, "hard_brake": 0, "aggressive_turns": 0, "speed_light_per_100km": 0.0, "speed_moderate_per_100km": 0.3830883889391934, "speed_severe_per_100km": 0.10447865152887092, "speed_critical_per_100km": 0.0, "hard_accel_per_100km": 0.0, "hard_brake_per_100km": 0.0, "aggressive_turns_per_100km": 0.0, "night_km": 1298.1343950001587, "non_routine_km": 3506.1, "routine_pct": 15.384615384615385, "avg_state_risk": 38.04833878944069, "total_trips": 26.0, "geo_weighted_num": 1092.52, "route_routine_km": -634.6999999999998 }, { "Vehículo": "TS0759", "ID": 27210, "distance_km": 31.0, "distance_used_km": 31.0, "engine_on_hours": 12.0, "IRP": 6.00989636549409, "speed_light": 0, "speed_moderate": 1, "speed_severe": 0, "speed_critical": 0, "hard_accel": 0, "hard_brake": 0, "aggressive_turns": 0, "speed_light_per_100km": 0.0, "speed_moderate_per_100km": 3.225806451612903, "speed_severe_per_100km": 0.0, "speed_critical_per_100km": 0.0, "hard_accel_per_100km": 0.0, "hard_brake_per_100km": 0.0, "aggressive_turns_per_100km": 0.0, "night_km": 3.6204524886877834, "non_routine_km": 0.0, "routine_pct": 100.0, "avg_state_risk": 11.612903225806452, "total_trips": 10.0, "geo_weighted_num": 3.6, "route_routine_km": 31.0 }, { "Vehículo": "TS0760", "ID": 22491, "distance_km": 0.0, "distance_used_km": 0.0, "engine_on_hours": 0.0, "IRP": 0.0, "speed_light": 0, "speed_moderate": 0, "speed_severe": 0, "speed_critical": 0, "hard_accel": 0, "hard_brake": 0, "aggressive_turns": 0, "speed_light_per_100km": 0.0, "speed_moderate_per_100km": 0.0, "speed_severe_per_100km": 0.0, "speed_critical_per_100km": 0.0, "hard_accel_per_100km": 0.0, "hard_brake_per_100km": 0.0, "aggressive_turns_per_100km": 0.0, "night_km": 0.0, "non_routine_km": 0.0, "routine_pct": 0.0, "avg_state_risk": 0.0, "total_trips": 0.0, "geo_weighted_num": 0.0, "route_routine_km": 0.0 }, { "Vehículo": "TS0763", "ID": 25098, "distance_km": 2796.1, "distance_used_km": 2796.1, "engine_on_hours": 79.7, "IRP": 23.47364749556218, "speed_light": 0, "speed_moderate": 40, "speed_severe": 4, "speed_critical": 13, "hard_accel": 0, "hard_brake": 0, "aggressive_turns": 0, "speed_light_per_100km": 0.0, "speed_moderate_per_100km": 1.4305639998569435, "speed_severe_per_100km": 0.14305639998569436, "speed_critical_per_100km": 0.4649332999535067, "hard_accel_per_100km": 0.0, "hard_brake_per_100km": 0.0, "aggressive_turns_per_100km": 0.0, "night_km": 1614.052384156094, "non_routine_km": 2197.7, "routine_pct": 48.484848484848484, "avg_state_risk": 20.8270090483173, "total_trips": 33.0, "geo_weighted_num": 582.344, "route_routine_km": 598.4000000000001 }, { "Vehículo": "TS0765", "ID": 22887, "distance_km": 1179.1, "distance_used_km": 1179.1, "engine_on_hours": 68.4, "IRP": 33.107388747458906, "speed_light": 0, "speed_moderate": 20, "speed_severe": 7, "speed_critical": 2, "hard_accel": 0, "hard_brake": 0, "aggressive_turns": 0, "speed_light_per_100km": 0.0, "speed_moderate_per_100km": 1.696208972945467, "speed_severe_per_100km": 0.5936731405309135, "speed_critical_per_100km": 0.1696208972945467, "hard_accel_per_100km": 0.0, "hard_brake_per_100km": 0.0, "aggressive_turns_per_100km": 0.0, "night_km": 617.4561381419193, "non_routine_km": 1827.8, "routine_pct": 10.0, "avg_state_risk": 35.26876431176322, "total_trips": 20.0, "geo_weighted_num": 415.85400000000004, "route_routine_km": -648.7 }, { "Vehículo": "TS0766", "ID": 27177, "distance_km": 2549.6, "distance_used_km": 2549.6, "engine_on_hours": 94.3, "IRP": 27.7423612565932, "speed_light": 0, "speed_moderate": 12, "speed_severe": 2, "speed_critical": 1, "hard_accel": 0, "hard_brake": 0, "aggressive_turns": 0, "speed_light_per_100km": 0.0, "speed_moderate_per_100km": 0.47066206463759025, "speed_severe_per_100km": 0.07844367743959837, "speed_critical_per_100km": 0.03922183871979919, "hard_accel_per_100km": 0.0, "hard_brake_per_100km": 0.0, "aggressive_turns_per_100km": 0.0, "night_km": 1578.3776173206677, "non_routine_km": 2548.1, "routine_pct": 50.0, "avg_state_risk": 39.48709601506119, "total_trips": 38.0, "geo_weighted_num": 1006.763, "route_routine_km": 1.5 }, { "Vehículo": "TS0769", "ID": 22326, "distance_km": 0.0, "distance_used_km": 0.0, "engine_on_hours": 0.0, "IRP": 0.0, "speed_light": 0, "speed_moderate": 0, "speed_severe": 0, "speed_critical": 0, "hard_accel": 0, "hard_brake": 0, "aggressive_turns": 0, "speed_light_per_100km": 0.0, "speed_moderate_per_100km": 0.0, "speed_severe_per_100km": 0.0, "speed_critical_per_100km": 0.0, "hard_accel_per_100km": 0.0, "hard_brake_per_100km": 0.0, "aggressive_turns_per_100km": 0.0, "night_km": 0.0, "non_routine_km": 0.0, "routine_pct": 0.0, "avg_state_risk": 0.0, "total_trips": 0.0, "geo_weighted_num": 0.0, "route_routine_km": 0.0 }, { "Vehículo": "TS0770", "ID": 22129, "distance_km": 478.5, "distance_used_km": 478.5, "engine_on_hours": 66.5, "IRP": 23.14369905956113, "speed_light": 0, "speed_moderate": 1, "speed_severe": 0, "speed_critical": 0, "hard_accel": 0, "hard_brake": 0, "aggressive_turns": 0, "speed_light_per_100km": 0.0, "speed_moderate_per_100km": 0.20898641588296762, "speed_severe_per_100km": 0.0, "speed_critical_per_100km": 0.0, "hard_accel_per_100km": 0.0, "hard_brake_per_100km": 0.0, "aggressive_turns_per_100km": 0.0, "night_km": 70.5, "non_routine_km": 542.2, "routine_pct": 12.5, "avg_state_risk": 47.38516196447231, "total_trips": 16.0, "geo_weighted_num": 226.738, "route_routine_km": -63.700000000000045 }, { "Vehículo": "TS0771", "ID": 19653, "distance_km": 2433.6, "distance_used_km": 2433.6, "engine_on_hours": 78.4, "IRP": 24.607644373767872, "speed_light": 0, "speed_moderate": 28, "speed_severe": 7, "speed_critical": 0, "hard_accel": 0, "hard_brake": 0, "aggressive_turns": 0, "speed_light_per_100km": 0.0, "speed_moderate_per_100km": 1.1505588428665352, "speed_severe_per_100km": 0.2876397107166338, "speed_critical_per_100km": 0.0, "hard_accel_per_100km": 0.0, "hard_brake_per_100km": 0.0, "aggressive_turns_per_100km": 0.0, "night_km": 878.7228898667661, "non_routine_km": 2471.0, "routine_pct": 33.33333333333333, "avg_state_risk": 39.14842209072978, "total_trips": 24.0, "geo_weighted_num": 952.716, "route_routine_km": -37.40000000000009 }, { "Vehículo": "TS0772", "ID": 22492, "distance_km": 1340.4, "distance_used_km": 1340.4, "engine_on_hours": 60.5, "IRP": 31.461954836194824, "speed_light": 0, "speed_moderate": 37, "speed_severe": 0, "speed_critical": 0, "hard_accel": 0, "hard_brake": 0, "aggressive_turns": 0, "speed_light_per_100km": 0.0, "speed_moderate_per_100km": 2.7603700387943895, "speed_severe_per_100km": 0.0, "speed_critical_per_100km": 0.0, "hard_accel_per_100km": 0.0, "hard_brake_per_100km": 0.0, "aggressive_turns_per_100km": 0.0, "night_km": 577.2042841623701, "non_routine_km": 896.9, "routine_pct": 46.666666666666664, "avg_state_risk": 83.2756639809012, "total_trips": 30.0, "geo_weighted_num": 1116.2269999999999, "route_routine_km": 443.5000000000001 }, { "Vehículo": "TS0773", "ID": 19457, "distance_km": 380.7, "distance_used_km": 380.7, "engine_on_hours": 38.1, "IRP": 34.9163645915419, "speed_light": 0, "speed_moderate": 101, "speed_severe": 19, "speed_critical": 0, "hard_accel": 0, "hard_brake": 0, "aggressive_turns": 0, "speed_light_per_100km": 0.0, "speed_moderate_per_100km": 26.53007617546625, "speed_severe_per_100km": 4.990806409246126, "speed_critical_per_100km": 0.0, "hard_accel_per_100km": 0.0, "hard_brake_per_100km": 0.0, "aggressive_turns_per_100km": 0.0, "night_km": 37.5, "non_routine_km": 12.2, "routine_pct": 96.0, "avg_state_risk": 41.08431836091411, "total_trips": 25.0, "geo_weighted_num": 156.40800000000002, "route_routine_km": 368.5 }, { "Vehículo": "TS0788", "ID": 19752, "distance_km": 2800.1, "distance_used_km": 2800.1, "engine_on_hours": 108.8, "IRP": 28.140581630245656, "speed_light": 0, "speed_moderate": 75, "speed_severe": 30, "speed_critical": 13, "hard_accel": 0, "hard_brake": 0, "aggressive_turns": 0, "speed_light_per_100km": 0.0, "speed_moderate_per_100km": 2.678475768722546, "speed_severe_per_100km": 1.0713903074890183, "speed_critical_per_100km": 0.4642691332452413, "hard_accel_per_100km": 0.0, "hard_brake_per_100km": 0.0, "aggressive_turns_per_100km": 0.0, "night_km": 1498.180174856724, "non_routine_km": 2341.2999999999997, "routine_pct": 37.03703703703704, "avg_state_risk": 32.732295275168745, "total_trips": 27.0, "geo_weighted_num": 916.5369999999999, "route_routine_km": 458.8000000000002 }, { "Vehículo": "TS0789", "ID": 20183, "distance_km": 2920.3, "distance_used_km": 2920.3, "engine_on_hours": 131.9, "IRP": 32.09042247253609, "speed_light": 0, "speed_moderate": 101, "speed_severe": 26, "speed_critical": 4, "hard_accel": 0, "hard_brake": 1, "aggressive_turns": 0, "speed_light_per_100km": 0.0, "speed_moderate_per_100km": 3.4585487792350103, "speed_severe_per_100km": 0.8903194877238639, "speed_critical_per_100km": 0.13697222888059446, "hard_accel_per_100km": 0.0, "hard_brake_per_100km": 0.034243057220148615, "aggressive_turns_per_100km": 0.0, "night_km": 1344.9893831031432, "non_routine_km": 3310.0, "routine_pct": 27.027027027027028, "avg_state_risk": 48.29781186864363, "total_trips": 37.0, "geo_weighted_num": 1410.441, "route_routine_km": -389.6999999999998 }, { "Vehículo": "TS0790", "ID": 18696, "distance_km": 3621.3, "distance_used_km": 3621.3, "engine_on_hours": 111.1, "IRP": 28.533235024802053, "speed_light": 0, "speed_moderate": 15, "speed_severe": 5, "speed_critical": 2, "hard_accel": 0, "hard_brake": 0, "aggressive_turns": 0, "speed_light_per_100km": 0.0, "speed_moderate_per_100km": 0.4142158893215143, "speed_severe_per_100km": 0.13807196310717146, "speed_critical_per_100km": 0.05522878524286858, "hard_accel_per_100km": 0.0, "hard_brake_per_100km": 0.0, "aggressive_turns_per_100km": 0.0, "night_km": 1465.7789330210458, "non_routine_km": 4454.8, "routine_pct": 13.953488372093023, "avg_state_risk": 47.32101731422417, "total_trips": 43.0, "geo_weighted_num": 1713.636, "route_routine_km": -833.5 }, { "Vehículo": "TS0791", "ID": 22854, "distance_km": 2277.1, "distance_used_km": 2277.1, "engine_on_hours": 68.8, "IRP": 34.96268146347916, "speed_light": 0, "speed_moderate": 59, "speed_severe": 26, "speed_critical": 18, "hard_accel": 0, "hard_brake": 0, "aggressive_turns": 0, "speed_light_per_100km": 0.0, "speed_moderate_per_100km": 2.591014887356726, "speed_severe_per_100km": 1.141803170699574, "speed_critical_per_100km": 0.7904791181766282, "hard_accel_per_100km": 0.0, "hard_brake_per_100km": 0.0, "aggressive_turns_per_100km": 0.0, "night_km": 1339.005464032559, "non_routine_km": 2491.7, "routine_pct": 25.806451612903224, "avg_state_risk": 43.721048702296784, "total_trips": 31.0, "geo_weighted_num": 995.572, "route_routine_km": -214.5999999999999 }];
         const dailyData = [{ "Vehículo": "TS0713", "date": "2026-03-02", "km_total": 411.20000000000005, "km_day": 71.00051958433254, "km_night": 340.1994804156675, "est_events": 2.9478328002646963 }, { "Vehículo": "TS0713", "date": "2026-03-03", "km_total": 423.3, "km_day": 199.6450094889998, "km_night": 223.65499051100022, "est_events": 3.034575934708283 }, { "Vehículo": "TS0713", "date": "2026-03-05", "km_total": 329.0979076412573, "km_day": 94.19794069192751, "km_night": 234.89996694932978, "est_events": 2.3592548799693085 }, { "Vehículo": "TS0713", "date": "2026-03-06", "km_total": 771.7020923587427, "km_day": 507.75322916666664, "km_night": 263.9488631920761, "est_events": 5.5322196981712 }, { "Vehículo": "TS0713", "date": "2026-03-07", "km_total": 637.3276647304087, "km_day": 377.7159487255925, "km_night": 259.6117160048163, "est_events": 4.56890903358074 }, { "Vehículo": "TS0713", "date": "2026-03-08", "km_total": 628.9723352695913, "km_day": 243.55770286162294, "km_night": 385.4146324079684, "est_events": 4.509010895833621 }, { "Vehículo": "TS0713", "date": "2026-03-09", "km_total": 422.70000000000005, "km_day": 197.21927114824385, "km_night": 225.48072885175617, "est_events": 3.0302746222565347 }, { "Vehículo": "TS0713", "date": "2026-03-10", "km_total": 2.5, "km_day": 2.5, "km_night": 0.0, "est_events": 0.01792213521561707 }, { "Vehículo": "TS0727", "date": "2026-03-06", "km_total": 1.7, "km_day": 1.7, "km_night": 0.0, "est_events": 0.0 }, { "Vehículo": "TS0727", "date": "2026-03-10", "km_total": 0.9999999999999999, "km_day": 0.9999999999999999, "km_night": 0.0, "est_events": 0.0 }, { "Vehículo": "TS0747", "date": "2026-03-01", "km_total": 176.87098939929328, "km_day": 0.0, "km_night": 176.87098939929328, "est_events": 9.152444470856056 }, { "Vehículo": "TS0747", "date": "2026-03-02", "km_total": 583.1290106007067, "km_day": 460.2250800067374, "km_night": 122.90393059396932, "est_events": 30.174851777526868 }, { "Vehículo": "TS0747", "date": "2026-03-03", "km_total": 611.4646285338592, "km_day": 403.3, "km_night": 208.16462853385931, "est_events": 31.64111919968224 }, { "Vehículo": "TS0747", "date": "2026-03-04", "km_total": 160.1353714661407, "km_day": 149.4, "km_night": 10.735371466140696, "est_events": 8.286435780912845 }, { "Vehículo": "TS0747", "date": "2026-03-05", "km_total": 3.6, "km_day": 3.6, "km_night": 0.0, "est_events": 0.18628719275549807 }, { "Vehículo": "TS0747", "date": "2026-03-06", "km_total": 259.28073833671397, "km_day": 217.29999999999998, "km_night": 41.980738336714005, "est_events": 13.416855800088692 }, { "Vehículo": "TS0747", "date": "2026-03-07", "km_total": 193.51926166328602, "km_day": 47.5, "km_night": 146.01926166328602, "est_events": 10.013933333158398 }, { "Vehículo": "TS0747", "date": "2026-03-09", "km_total": 739.8416066092459, "km_day": 422.51808280750276, "km_night": 317.32352380174314, "est_events": 38.284171105264996 }, { "Vehículo": "TS0747", "date": "2026-03-10", "km_total": 54.95839339075409, "km_day": 0.1, "km_night": 54.85839339075409, "est_events": 2.8439013397544164 }, { "Vehículo": "TS0748", "date": "2026-03-01", "km_total": 34.253079847908744, "km_day": 0.0, "km_night": 34.253079847908744, "est_events": 0.6804855779988781 }, { "Vehículo": "TS0748", "date": "2026-03-02", "km_total": 778.9469201520913, "km_day": 454.91860751614433, "km_night": 324.02831263594686, "est_events": 15.47487547232935 }, { "Vehículo": "TS0748", "date": "2026-03-03", "km_total": 188.80000000000004, "km_day": 47.20552228875582, "km_night": 141.5944777112442, "est_events": 3.750777381089486 }, { "Vehículo": "TS0748", "date": "2026-03-04", "km_total": 343.89799109214067, "km_day": 28.7, "km_night": 315.1979910921407, "est_events": 6.832016983000607 }, { "Vehículo": "TS0748", "date": "2026-03-05", "km_total": 744.8388308999697, "km_day": 539.3531883354206, "km_night": 205.4856425645492, "est_events": 14.797270336317492 }, { "Vehículo": "TS0748", "date": "2026-03-06", "km_total": 468.1146167582321, "km_day": 333.90000000000003, "km_night": 134.2146167582321, "est_events": 9.299754853252914 }, { "Vehículo": "TS0748", "date": "2026-03-07", "km_total": 487.84856124965745, "km_day": 373.6195313018909, "km_night": 114.2290299477666, "est_events": 9.691797399005633 }, { "Vehículo": "TS0748", "date": "2026-03-08", "km_total": 237.9, "km_day": 237.9, "km_night": 0.0, "est_events": 4.726217897040194 }, { "Vehículo": "TS0748", "date": "2026-03-09", "km_total": 188.6, "km_day": 150.66121002175137, "km_night": 37.93878997824861, "est_events": 3.7468040999654497 }, { "Vehículo": "TS0755", "date": "2026-03-04", "km_total": 0.8999999999999999, "km_day": 0.3, "km_night": 0.6, "est_events": 0.002925877763328999 }, { "Vehículo": "TS0755", "date": "2026-03-05", "km_total": 306.7, "km_day": 306.7, "km_night": 0.0, "est_events": 0.997074122236671 }, { "Vehículo": "TS0756", "date": "2026-03-02", "km_total": 480.36025179856114, "km_day": 251.23650766016715, "km_night": 229.123744138394, "est_events": 17.437639192765324 }, { "Vehículo": "TS0756", "date": "2026-03-03", "km_total": 342.8878525436294, "km_day": 55.11245012787724, "km_night": 287.7754024157521, "est_events": 12.447230248237284 }, { "Vehículo": "TS0756", "date": "2026-03-04", "km_total": 346.23424721847596, "km_day": 235.29631249901604, "km_night": 110.93793471945992, "est_events": 12.568708290431825 }, { "Vehículo": "TS0756", "date": "2026-03-05", "km_total": 412.51764843933347, "km_day": 159.3064922845314, "km_night": 253.21115615480204, "est_events": 14.974873310603622 }, { "Vehículo": "TS0756", "date": "2026-03-06", "km_total": 516.5353021806853, "km_day": 364.92116291251966, "km_night": 151.6141392681657, "est_events": 18.750835848778646 }, { "Vehículo": "TS0756", "date": "2026-03-07", "km_total": 665.1646978193147, "km_day": 288.7879830425567, "km_night": 376.376714776758, "est_events": 24.1462568164403 }, { "Vehículo": "TS0756", "date": "2026-03-09", "km_total": 297.9094876660341, "km_day": 199.47714756820878, "km_night": 98.43234009782537, "est_events": 10.814462975592592 }, { "Vehículo": "TS0756", "date": "2026-03-10", "km_total": 23.69051233396584, "km_day": 5.0, "km_night": 18.69051233396584, "est_events": 0.8599933171504147 }, { "Vehículo": "TS0757", "date": "2026-03-10", "km_total": 17.8, "km_day": 17.8, "km_night": 0.0, "est_events": 0.0 }, { "Vehículo": "TS0758", "date": "2026-03-01", "km_total": 655.2, "km_day": 449.4116528543183, "km_night": 205.7883471456817, "est_events": 2.459129782043377 }, { "Vehículo": "TS0758", "date": "2026-03-02", "km_total": 497.90000000000003, "km_day": 212.28352922234745, "km_night": 285.6164707776526, "est_events": 1.8687434653226456 }, { "Vehículo": "TS0758", "date": "2026-03-03", "km_total": 798.5, "km_day": 749.3553714859437, "km_night": 49.14462851405622, "est_events": 2.9969705906007884 }, { "Vehículo": "TS0758", "date": "2026-03-04", "km_total": 1.0, "km_day": 1.0, "km_night": 0.0, "est_events": 0.003753250583094287 }, { "Vehículo": "TS0758", "date": "2026-03-05", "km_total": 4.2, "km_day": 4.2, "km_night": 0.0, "est_events": 0.015763652448996007 }, { "Vehículo": "TS0758", "date": "2026-03-07", "km_total": 401.9, "km_day": 134.556477074409, "km_night": 267.343522925591, "est_events": 1.508431409345594 }, { "Vehículo": "TS0758", "date": "2026-03-08", "km_total": 872.8, "km_day": 589.4585743628229, "km_night": 283.34142563717717, "est_events": 3.2758371089246934 }, { "Vehículo": "TS0758", "date": "2026-03-09", "km_total": 447.6, "km_day": 240.70000000000002, "km_night": 206.9, "est_events": 1.6799549609930031 }, { "Vehículo": "TS0758", "date": "2026-03-10", "km_total": 51.0, "km_day": 51.0, "km_night": 0.0, "est_events": 0.19141577973780866 }, { "Vehículo": "TS0759", "date": "2026-03-02", "km_total": 24.6, "km_day": 20.97954751131222, "km_night": 3.620452488687783, "est_events": 0.8913043478260869 }, { "Vehículo": "TS0759", "date": "2026-03-03", "km_total": 1.5, "km_day": 1.5, "km_night": 0.0, "est_events": 0.05434782608695652 }, { "Vehículo": "TS0759", "date": "2026-03-04", "km_total": 1.3999999999999997, "km_day": 1.3999999999999997, "km_night": 0.0, "est_events": 0.05072463768115941 }, { "Vehículo": "TS0759", "date": "2026-03-10", "km_total": 0.09999999999999999, "km_day": 0.09999999999999999, "km_night": 0.0, "est_events": 0.003623188405797101 }, { "Vehículo": "TS0763", "date": "2026-03-01", "km_total": 383.1, "km_day": 379.42962962962963, "km_night": 3.6703703703703705, "est_events": 6.852664281679534 }, { "Vehículo": "TS0763", "date": "2026-03-03", "km_total": 206.3157776378519, "km_day": 28.699999999999996, "km_night": 177.61577763785192, "est_events": 3.6904535634712734 }, { "Vehículo": "TS0763", "date": "2026-03-04", "km_total": 617.9842223621481, "km_day": 340.8, "km_night": 277.1842223621481, "est_events": 11.054133143363597 }, { "Vehículo": "TS0763", "date": "2026-03-05", "km_total": 459.02077156799555, "km_day": 220.7862641598956, "km_night": 238.2345074081, "est_events": 8.21068975691199 }, { "Vehículo": "TS0763", "date": "2026-03-06", "km_total": 463.3792284320044, "km_day": 233.1, "km_night": 230.2792284320044, "est_events": 8.288651233485298 }, { "Vehículo": "TS0763", "date": "2026-03-07", "km_total": 31.2, "km_day": 31.2, "km_night": 0.0, "est_events": 0.5580869892675578 }, { "Vehículo": "TS0763", "date": "2026-03-08", "km_total": 217.96325720835907, "km_day": 0.0, "km_night": 217.96325720835907, "est_events": 3.8987967303321622 }, { "Vehículo": "TS0763", "date": "2026-03-09", "km_total": 807.3664080636074, "km_day": 338.5317220543807, "km_night": 468.83468600922674, "est_events": 14.441688715127606 }, { "Vehículo": "TS0763", "date": "2026-03-10", "km_total": 0.2703347280334728, "km_day": 0.0, "km_night": 0.2703347280334728, "est_events": 0.00483558636098285 }, { "Vehículo": "TS0765", "date": "2026-03-05", "km_total": 188.9, "km_day": 188.9, "km_night": 0.0, "est_events": 2.9966085006290686 }, { "Vehículo": "TS0765", "date": "2026-03-06", "km_total": 254.7, "km_day": 67.6, "km_night": 187.1, "est_events": 4.040424484437394 }, { "Vehículo": "TS0765", "date": "2026-03-07", "km_total": 439.9, "km_day": 293.44386185808077, "km_night": 146.45613814191924, "est_events": 6.9783381653082435 }, { "Vehículo": "TS0765", "date": "2026-03-08", "km_total": 351.3, "km_day": 351.3, "km_night": 0.0, "est_events": 5.572835184070894 }, { "Vehículo": "TS0765", "date": "2026-03-09", "km_total": 288.0815001361285, "km_day": 7.8, "km_night": 280.2815001361285, "est_events": 4.569970736801995 }, { "Vehículo": "TS0765", "date": "2026-03-10", "km_total": 305.2184998638715, "km_day": 301.6, "km_night": 3.6184998638714947, "est_events": 4.841822928752406 }, { "Vehículo": "TS0766", "date": "2026-03-02", "km_total": 388.9222540592168, "km_day": 71.92792792792794, "km_night": 316.9943261312889, "est_events": 2.03007753449847 }, { "Vehículo": "TS0766", "date": "2026-03-03", "km_total": 445.27774594078323, "km_day": 209.17224118316267, "km_night": 236.1055047576205, "est_events": 2.324239200024967 }, { "Vehículo": "TS0766", "date": "2026-03-04", "km_total": 5.9, "km_day": 0.1, "km_night": 5.800000000000001, "est_events": 0.030796534084977557 }, { "Vehículo": "TS0766", "date": "2026-03-05", "km_total": 456.8, "km_day": 266.6913778877888, "km_night": 190.10862211221124, "est_events": 2.3843825033928385 }, { "Vehículo": "TS0766", "date": "2026-03-06", "km_total": 866.5, "km_day": 394.9166694026192, "km_night": 471.58333059738084, "est_events": 4.522914709259839 }, { "Vehículo": "TS0766", "date": "2026-03-07", "km_total": 5.9, "km_day": 5.9, "km_night": 0.0, "est_events": 0.030796534084977557 }, { "Vehículo": "TS0766", "date": "2026-03-08", "km_total": 311.14429109159346, "km_day": 139.19982695332257, "km_night": 171.94446413827092, "est_events": 1.6240958925336333 }, { "Vehículo": "TS0766", "date": "2026-03-09", "km_total": 393.2557089084065, "km_day": 207.41433932451116, "km_night": 185.84136958389539, "est_events": 2.0526970921202974 }, { "Vehículo": "TS0770", "date": "2026-03-01", "km_total": 121.5, "km_day": 61.2, "km_night": 60.3, "est_events": 0.22400442477876106 }, { "Vehículo": "TS0770", "date": "2026-03-02", "km_total": 8.0, "km_day": 0.1, "km_night": 7.9, "est_events": 0.014749262536873156 }, { "Vehículo": "TS0770", "date": "2026-03-04", "km_total": 5.1, "km_day": 2.9, "km_night": 2.2, "est_events": 0.009402654867256636 }, { "Vehículo": "TS0770", "date": "2026-03-05", "km_total": 407.7, "km_day": 407.6, "km_night": 0.1, "est_events": 0.7516592920353983 }, { "Vehículo": "TS0770", "date": "2026-03-06", "km_total": 0.1, "km_day": 0.1, "km_night": 0.0, "est_events": 0.00018436578171091448 }, { "Vehículo": "TS0771", "date": "2026-03-02", "km_total": 819.1170760650291, "km_day": 507.86040109172893, "km_night": 311.2566749733001, "est_events": 11.54615290466211 }, { "Vehículo": "TS0771", "date": "2026-03-03", "km_total": 32.58292393497093, "km_day": 3.0999999999999996, "km_night": 29.48292393497093, "est_events": 0.45928406674344846 }, { "Vehículo": "TS0771", "date": "2026-03-04", "km_total": 3.1, "km_day": 3.1, "km_night": 0.0, "est_events": 0.0436971405557793 }, { "Vehículo": "TS0771", "date": "2026-03-05", "km_total": 645.8684973209937, "km_day": 350.55459974954243, "km_night": 295.31389757145126, "est_events": 9.104066615479171 }, { "Vehículo": "TS0771", "date": "2026-03-06", "km_total": 195.13150267900633, "km_day": 82.64660942316162, "km_night": 112.48489325584472, "est_events": 2.750544741749988 }, { "Vehículo": "TS0771", "date": "2026-03-09", "km_total": 779.6383567966767, "km_day": 657.0154998688009, "km_night": 122.62285692787584, "est_events": 10.989666728910063 }, { "Vehículo": "TS0771", "date": "2026-03-10", "km_total": 7.5616432033233325, "km_day": 0.0, "km_night": 7.5616432033233325, "est_events": 0.10658780189944286 }, { "Vehículo": "TS0772", "date": "2026-03-01", "km_total": 93.72570532915361, "km_day": 1.1941080196399345, "km_night": 92.53159730951367, "est_events": 2.587176288554673 }, { "Vehículo": "TS0772", "date": "2026-03-02", "km_total": 236.1742946708464, "km_day": 45.23959543969422, "km_night": 190.93469923115217, "est_events": 6.519284469428019 }, { "Vehículo": "TS0772", "date": "2026-03-03", "km_total": 244.39999999999998, "km_day": 123.39999999999999, "km_night": 121.0, "est_events": 6.7463443748134875 }, { "Vehículo": "TS0772", "date": "2026-03-04", "km_total": 168.6, "km_day": 124.5, "km_night": 44.1, "est_events": 4.6539838854073405 }, { "Vehículo": "TS0772", "date": "2026-03-05", "km_total": 201.4, "km_day": 143.72528103093313, "km_night": 57.67471896906685, "est_events": 5.5593852581319005 }, { "Vehículo": "TS0772", "date": "2026-03-06", "km_total": 125.29999999999998, "km_day": 72.93673134736267, "km_night": 52.36326865263733, "est_events": 3.45874365860937 }, { "Vehículo": "TS0772", "date": "2026-03-09", "km_total": 263.6, "km_day": 245.0, "km_night": 18.6, "est_events": 7.276335422262012 }, { "Vehículo": "TS0772", "date": "2026-03-10", "km_total": 7.2, "km_day": 7.2, "km_night": 0.0, "est_events": 0.19874664279319607 }, { "Vehículo": "TS0773", "date": "2026-03-02", "km_total": 74.1, "km_day": 74.1, "km_night": 0.0, "est_events": 22.53421186011151 }, { "Vehículo": "TS0773", "date": "2026-03-03", "km_total": 38.7, "km_day": 38.7, "km_night": 0.0, "est_events": 11.768879878357831 }, { "Vehículo": "TS0773", "date": "2026-03-04", "km_total": 38.699999999999996, "km_day": 38.699999999999996, "km_night": 0.0, "est_events": 11.76887987835783 }, { "Vehículo": "TS0773", "date": "2026-03-06", "km_total": 68.2, "km_day": 30.7, "km_night": 37.5, "est_events": 20.739989863152562 }, { "Vehículo": "TS0773", "date": "2026-03-07", "km_total": 38.699999999999996, "km_day": 38.699999999999996, "km_night": 0.0, "est_events": 11.76887987835783 }, { "Vehículo": "TS0773", "date": "2026-03-09", "km_total": 118.5, "km_day": 118.5, "km_night": 0.0, "est_events": 36.03649265078561 }, { "Vehículo": "TS0773", "date": "2026-03-10", "km_total": 17.7, "km_day": 17.7, "km_night": 0.0, "est_events": 5.382665990876838 }, { "Vehículo": "TS0788", "date": "2026-03-02", "km_total": 220.1, "km_day": 0.9, "km_night": 219.2, "est_events": 9.297891382952063 }, { "Vehículo": "TS0788", "date": "2026-03-03", "km_total": 219.4, "km_day": 31.400000000000002, "km_night": 188.0, "est_events": 9.268320624351125 }, { "Vehículo": "TS0788", "date": "2026-03-04", "km_total": 772.4, "km_day": 533.7664183626189, "km_night": 238.633581637381, "est_events": 32.62921991909211 }, { "Vehículo": "TS0788", "date": "2026-03-05", "km_total": 568.4825826330532, "km_day": 263.78414741548676, "km_night": 304.6984352175665, "est_events": 24.014944599828258 }, { "Vehículo": "TS0788", "date": "2026-03-06", "km_total": 294.81741736694676, "km_day": 107.4, "km_night": 187.41741736694678, "est_events": 12.454249543299937 }, { "Vehículo": "TS0788", "date": "2026-03-07", "km_total": 410.0, "km_day": 137.46925936517016, "km_night": 272.53074063482984, "est_events": 17.320015751977945 }, { "Vehículo": "TS0788", "date": "2026-03-09", "km_total": 308.1, "km_day": 220.4, "km_night": 87.7, "est_events": 13.01535817849855 }, { "Vehículo": "TS0789", "date": "2026-03-01", "km_total": 584.1, "km_day": 499.4516854720022, "km_night": 84.64831452799775, "est_events": 23.097330816931787 }, { "Vehículo": "TS0789", "date": "2026-03-02", "km_total": 183.6, "km_day": 0.0, "km_night": 183.6, "est_events": 7.260177945537881 }, { "Vehículo": "TS0789", "date": "2026-03-03", "km_total": 660.8, "km_day": 531.2084434479798, "km_night": 129.59155655202022, "est_events": 26.130313651478385 }, { "Vehículo": "TS0789", "date": "2026-03-04", "km_total": 1.0, "km_day": 0.0, "km_night": 1.0, "est_events": 0.03954345286240676 }, { "Vehículo": "TS0789", "date": "2026-03-05", "km_total": 304.3, "km_day": 156.25863935969866, "km_night": 148.04136064030132, "est_events": 12.033072706030376 }, { "Vehículo": "TS0789", "date": "2026-03-06", "km_total": 405.29999999999995, "km_day": 197.79999999999998, "km_night": 207.5, "est_events": 16.026961445133455 }, { "Vehículo": "TS0789", "date": "2026-03-07", "km_total": 291.0, "km_day": 290.9, "km_night": 0.1, "est_events": 11.507144782960367 }, { "Vehículo": "TS0789", "date": "2026-03-08", "km_total": 153.3720922690234, "km_day": 10.5, "km_night": 142.8720922690234, "est_events": 6.064862101048827 }, { "Vehículo": "TS0789", "date": "2026-03-09", "km_total": 754.6279077309766, "km_day": 306.9918486171761, "km_night": 447.6360591138005, "est_events": 29.840593098016512 }, { "Vehículo": "TS0790", "date": "2026-03-01", "km_total": 569.9531330916623, "km_day": 419.65617577197145, "km_night": 150.29695731969085, "est_events": 2.811049842625783 }, { "Vehículo": "TS0790", "date": "2026-03-02", "km_total": 523.0468669083376, "km_day": 504.31747605014147, "km_night": 18.729390858196176, "est_events": 2.5797047643777575 }, { "Vehículo": "TS0790", "date": "2026-03-04", "km_total": 4.1, "km_day": 0.0, "km_night": 4.1, "est_events": 0.0202214948661615 }, { "Vehículo": "TS0790", "date": "2026-03-05", "km_total": 748.321421464108, "km_day": 342.5926960631839, "km_night": 405.72872540092413, "est_events": 3.6907750688719845 }, { "Vehículo": "TS0790", "date": "2026-03-06", "km_total": 873.378578535892, "km_day": 748.8795824680293, "km_night": 124.49899606786268, "est_events": 4.307565961482675 }, { "Vehículo": "TS0790", "date": "2026-03-07", "km_total": 480.1, "km_day": 218.27163056168118, "km_night": 261.8283694383189, "est_events": 2.367887728108326 }, { "Vehículo": "TS0790", "date": "2026-03-08", "km_total": 674.9000000000001, "km_day": 427.3, "km_night": 247.60000000000002, "est_events": 3.328655337846927 }, { "Vehículo": "TS0790", "date": "2026-03-09", "km_total": 372.8807580559957, "km_day": 333.80350606394705, "km_night": 39.0772519920487, "est_events": 1.8390747157852994 }, { "Vehículo": "TS0790", "date": "2026-03-10", "km_total": 213.91924194400426, "km_day": 0.0, "km_night": 213.91924194400426, "est_events": 1.0550650860350834 }, { "Vehículo": "TS0791", "date": "2026-03-02", "km_total": 108.002767920511, "km_day": 31.7, "km_night": 76.302767920511, "est_events": 3.8972411350240446 }, { "Vehículo": "TS0791", "date": "2026-03-03", "km_total": 420.66932358701683, "km_day": 231.5, "km_night": 189.16932358701686, "est_events": 15.179701628875677 }, { "Vehículo": "TS0791", "date": "2026-03-04", "km_total": 323.7279084924721, "km_day": 202.89999999999998, "km_night": 120.82790849247212, "est_events": 11.681605442378302 }, { "Vehículo": "TS0791", "date": "2026-03-05", "km_total": 492.5669435064342, "km_day": 242.5540265726681, "km_night": 250.01291693376612, "est_events": 17.77410145079972 }, { "Vehículo": "TS0791", "date": "2026-03-06", "km_total": 358.8929045287076, "km_day": 96.3, "km_night": 262.59290452870766, "est_events": 12.950521709100645 }, { "Vehículo": "TS0791", "date": "2026-03-07", "km_total": 590.3401519648581, "km_day": 314.75046191316034, "km_night": 275.5896900516978, "est_events": 21.302212602431467 }, { "Vehículo": "TS0791", "date": "2026-03-08", "km_total": 558.4, "km_day": 393.8900474816125, "km_night": 164.50995251838748, "est_events": 20.149663677130043 }, { "Vehículo": "TS0791", "date": "2026-03-09", "km_total": 1.8, "km_day": 1.8, "km_night": 0.0, "est_events": 0.06495235426008969 }];
         const stateData = [{ "Vehículo": "TS0713", "state": "Campeche", "km": 681, "risk_index": 15.7 }, { "Vehículo": "TS0713", "state": "Estado de México", "km": 367, "risk_index": 100.0 }, { "Vehículo": "TS0713", "state": "Hidalgo", "km": 56, "risk_index": 19.2 }, { "Vehículo": "TS0713", "state": "Puebla", "km": 269, "risk_index": 70.7 }, { "Vehículo": "TS0713", "state": "Tabasco", "km": 448, "risk_index": 48.2 }, { "Vehículo": "TS0713", "state": "Veracruz", "km": 1245, "risk_index": 10.0 }, { "Vehículo": "TS0713", "state": "Yucatán", "km": 152, "risk_index": 28.5 }, { "Vehículo": "TS0727", "state": "Hidalgo", "km": 4, "risk_index": 19.2 }, { "Vehículo": "TS0747", "state": "Estado de México", "km": 688, "risk_index": 100.0 }, { "Vehículo": "TS0747", "state": "Hidalgo", "km": 233, "risk_index": 19.2 }, { "Vehículo": "TS0747", "state": "Puebla", "km": 252, "risk_index": 70.7 }, { "Vehículo": "TS0747", "state": "Veracruz", "km": 948, "risk_index": 10.0 }, { "Vehículo": "TS0748", "state": "Chiapas", "km": 602, "risk_index": 0.0 }, { "Vehículo": "TS0748", "state": "Estado de México", "km": 356, "risk_index": 100.0 }, { "Vehículo": "TS0748", "state": "Hidalgo", "km": 56, "risk_index": 19.2 }, { "Vehículo": "TS0748", "state": "Oaxaca", "km": 498, "risk_index": 29.7 }, { "Vehículo": "TS0748", "state": "Puebla", "km": 309, "risk_index": 70.7 }, { "Vehículo": "TS0748", "state": "Veracruz", "km": 1401, "risk_index": 10.0 }, { "Vehículo": "TS0755", "state": "Veracruz", "km": 310, "risk_index": 10.0 }, { "Vehículo": "TS0756", "state": "Estado de México", "km": 77, "risk_index": 100.0 }, { "Vehículo": "TS0756", "state": "Guanajuato", "km": 80, "risk_index": 25.5 }, { "Vehículo": "TS0756", "state": "Hidalgo", "km": 170, "risk_index": 19.2 }, { "Vehículo": "TS0756", "state": "Puebla", "km": 55, "risk_index": 70.7 }, { "Vehículo": "TS0756", "state": "Querétaro", "km": 104, "risk_index": 68.6 }, { "Vehículo": "TS0756", "state": "San Luis Potosí", "km": 1979, "risk_index": 51.3 }, { "Vehículo": "TS0756", "state": "Tamaulipas", "km": 246, "risk_index": 5.0 }, { "Vehículo": "TS0756", "state": "Veracruz", "km": 450, "risk_index": 10.0 }, { "Vehículo": "TS0757", "state": "Veracruz", "km": 19, "risk_index": 10.0 }, { "Vehículo": "TS0758", "state": "Campeche", "km": 1188, "risk_index": 15.7 }, { "Vehículo": "TS0758", "state": "Morelos", "km": 59, "risk_index": 42.7 }, { "Vehículo": "TS0758", "state": "Puebla", "km": 397, "risk_index": 70.7 }, { "Vehículo": "TS0758", "state": "Tabasco", "km": 831, "risk_index": 48.2 }, { "Vehículo": "TS0758", "state": "Veracruz", "km": 1101, "risk_index": 10.0 }, { "Vehículo": "TS0758", "state": "Yucatán", "km": 314, "risk_index": 28.5 }, { "Vehículo": "TS0759", "state": "Veracruz", "km": 36, "risk_index": 10.0 }, { "Vehículo": "TS0763", "state": "Chiapas", "km": 1203, "risk_index": 0.0 }, { "Vehículo": "TS0763", "state": "Oaxaca", "km": 287, "risk_index": 29.7 }, { "Vehículo": "TS0763", "state": "Puebla", "km": 515, "risk_index": 70.7 }, { "Vehículo": "TS0763", "state": "Veracruz", "km": 1330, "risk_index": 10.0 }, { "Vehículo": "TS0765", "state": "Chiapas", "km": 618, "risk_index": 0.0 }, { "Vehículo": "TS0765", "state": "Estado de México", "km": 90, "risk_index": 100.0 }, { "Vehículo": "TS0765", "state": "Hidalgo", "km": 14, "risk_index": 19.2 }, { "Vehículo": "TS0765", "state": "Oaxaca", "km": 420, "risk_index": 29.7 }, { "Vehículo": "TS0765", "state": "Puebla", "km": 218, "risk_index": 70.7 }, { "Vehículo": "TS0765", "state": "Veracruz", "km": 443, "risk_index": 10.0 }, { "Vehículo": "TS0766", "state": "Ciudad de México", "km": 100, "risk_index": 79.0 }, { "Vehículo": "TS0766", "state": "Estado de México", "km": 296, "risk_index": 100.0 }, { "Vehículo": "TS0766", "state": "Guerrero", "km": 692, "risk_index": 17.8 }, { "Vehículo": "TS0766", "state": "Hidalgo", "km": 42, "risk_index": 19.2 }, { "Vehículo": "TS0766", "state": "Morelos", "km": 349, "risk_index": 42.7 }, { "Vehículo": "TS0766", "state": "Puebla", "km": 400, "risk_index": 70.7 }, { "Vehículo": "TS0766", "state": "Veracruz", "km": 687, "risk_index": 10.0 }, { "Vehículo": "TS0769", "state": "Morelos", "km": 0, "risk_index": 42.7 }, { "Vehículo": "TS0770", "state": "Morelos", "km": 34, "risk_index": 42.7 }, { "Vehículo": "TS0770", "state": "Puebla", "km": 260, "risk_index": 70.7 }, { "Vehículo": "TS0770", "state": "Veracruz", "km": 284, "risk_index": 10.0 }, { "Vehículo": "TS0771", "state": "--", "km": 1, "risk_index": null }, { "Vehículo": "TS0771", "state": "Ciudad de México", "km": 95, "risk_index": 79.0 }, { "Vehículo": "TS0771", "state": "Coahuila", "km": 57, "risk_index": 23.0 }, { "Vehículo": "TS0771", "state": "Estado de México", "km": 281, "risk_index": 100.0 }, { "Vehículo": "TS0771", "state": "Guanajuato", "km": 80, "risk_index": 25.5 }, { "Vehículo": "TS0771", "state": "Guerrero", "km": 434, "risk_index": 17.8 }, { "Vehículo": "TS0771", "state": "Hidalgo", "km": 142, "risk_index": 19.2 }, { "Vehículo": "TS0771", "state": "Morelos", "km": 199, "risk_index": 42.7 }, { "Vehículo": "TS0771", "state": "Nuevo León", "km": 176, "risk_index": 39.2 }, { "Vehículo": "TS0771", "state": "Puebla", "km": 77, "risk_index": 70.7 }, { "Vehículo": "TS0771", "state": "Querétaro", "km": 104, "risk_index": 68.6 }, { "Vehículo": "TS0771", "state": "San Luis Potosí", "km": 284, "risk_index": 51.3 }, { "Vehículo": "TS0771", "state": "Veracruz", "km": 332, "risk_index": 10.0 }, { "Vehículo": "TS0772", "state": "Estado de México", "km": 945, "risk_index": 100.0 }, { "Vehículo": "TS0772", "state": "Morelos", "km": 401, "risk_index": 42.7 }, { "Vehículo": "TS0773", "state": "Nuevo León", "km": 399, "risk_index": 39.2 }, { "Vehículo": "TS0788", "state": "Chiapas", "km": 728, "risk_index": 0.0 }, { "Vehículo": "TS0788", "state": "Estado de México", "km": 275, "risk_index": 100.0 }, { "Vehículo": "TS0788", "state": "Hidalgo", "km": 42, "risk_index": 19.2 }, { "Vehículo": "TS0788", "state": "Oaxaca", "km": 618, "risk_index": 29.7 }, { "Vehículo": "TS0788", "state": "Puebla", "km": 461, "risk_index": 70.7 }, { "Vehículo": "TS0788", "state": "Veracruz", "km": 1240, "risk_index": 10.0 }, { "Vehículo": "TS0789", "state": "Chiapas", "km": 327, "risk_index": 0.0 }, { "Vehículo": "TS0789", "state": "Coahuila", "km": 0, "risk_index": 23.0 }, { "Vehículo": "TS0789", "state": "Estado de México", "km": 553, "risk_index": 100.0 }, { "Vehículo": "TS0789", "state": "Guanajuato", "km": 415, "risk_index": 25.5 }, { "Vehículo": "TS0789", "state": "Hidalgo", "km": 93, "risk_index": 19.2 }, { "Vehículo": "TS0789", "state": "Morelos", "km": 148, "risk_index": 42.7 }, { "Vehículo": "TS0789", "state": "Nuevo León", "km": 175, "risk_index": 39.2 }, { "Vehículo": "TS0789", "state": "Puebla", "km": 263, "risk_index": 70.7 }, { "Vehículo": "TS0789", "state": "Querétaro", "km": 263, "risk_index": 68.6 }, { "Vehículo": "TS0789", "state": "San Luis Potosí", "km": 285, "risk_index": 51.3 }, { "Vehículo": "TS0789", "state": "Veracruz", "km": 894, "risk_index": 10.0 }, { "Vehículo": "TS0790", "state": "Campeche", "km": 532, "risk_index": 15.7 }, { "Vehículo": "TS0790", "state": "Chiapas", "km": 69, "risk_index": 0.0 }, { "Vehículo": "TS0790", "state": "Chihuahua", "km": 123, "risk_index": 26.1 }, { "Vehículo": "TS0790", "state": "Durango", "km": 234, "risk_index": 24.1 }, { "Vehículo": "TS0790", "state": "Estado de México", "km": 185, "risk_index": 100.0 }, { "Vehículo": "TS0790", "state": "Guanajuato", "km": 80, "risk_index": 25.5 }, { "Vehículo": "TS0790", "state": "Hidalgo", "km": 31, "risk_index": 19.2 }, { "Vehículo": "TS0790", "state": "Morelos", "km": 121, "risk_index": 42.7 }, { "Vehículo": "TS0790", "state": "Puebla", "km": 692, "risk_index": 70.7 }, { "Vehículo": "TS0790", "state": "Querétaro", "km": 104, "risk_index": 68.6 }, { "Vehículo": "TS0790", "state": "Quintana Roo", "km": 471, "risk_index": 52.0 }, { "Vehículo": "TS0790", "state": "San Luis Potosí", "km": 130, "risk_index": 51.3 }, { "Vehículo": "TS0790", "state": "Tabasco", "km": 452, "risk_index": 48.2 }, { "Vehículo": "TS0790", "state": "Veracruz", "km": 794, "risk_index": 10.0 }, { "Vehículo": "TS0790", "state": "Yucatán", "km": 288, "risk_index": 28.5 }, { "Vehículo": "TS0790", "state": "Zacatecas", "km": 167, "risk_index": 16.2 }, { "Vehículo": "TS0791", "state": "Chiapas", "km": 604, "risk_index": 0.0 }, { "Vehículo": "TS0791", "state": "Estado de México", "km": 384, "risk_index": 100.0 }, { "Vehículo": "TS0791", "state": "Hidalgo", "km": 136, "risk_index": 19.2 }, { "Vehículo": "TS0791", "state": "Oaxaca", "km": 406, "risk_index": 29.7 }, { "Vehículo": "TS0791", "state": "Puebla", "km": 554, "risk_index": 70.7 }, { "Vehículo": "TS0791", "state": "Veracruz", "km": 732, "risk_index": 10.0 }];
@@ -946,11 +1018,15 @@
             renderDiscounts(agg);
             renderTopVehicles(agg.rows);
             renderStates(safe);
+            generateRecommendations(agg);
 
-            const hasDates = document.getElementById("startDate").value && document.getElementById("endDate").value;
+            const selectedDates = datePicker.selectedDates || [];
 
-            if (hasDates) {
-                updateRange();
+            if (selectedDates.length === 2) {
+                const start = selectedDates[0];
+                const end = selectedDates[1];
+                const diff = (end - start) / (1000 * 60 * 60 * 24);
+                updateRange(start, end, diff);
             } else {
                 const daily = groupDaily(safe).map(r => ({
                     ...r,
@@ -962,30 +1038,8 @@
                 renderJourneyChart(currentRows);
             }
         }
-        function getDateRangeMode() {
-            const s = new Date(document.getElementById("startDate").value);
-            const e = new Date(document.getElementById("endDate").value);
 
-            if (!document.getElementById("startDate").value || !document.getElementById("endDate").value) {
-                return "week";
-            }
 
-            if (isNaN(s) || isNaN(e)) return "week";
-
-            const diff = Math.floor((e - s) / (1000 * 60 * 60 * 24)) + 1;
-
-            if (diff < 7) {
-                alert("El rango mínimo es de una semana");
-                return null;
-            }
-
-            if (diff > 30) {
-                alert("El rango máximo es un mes");
-                return null;
-            }
-
-            return diff <= 10 ? "week" : "month";
-        }
         function groupByWeek(rows) {
             const weeks = {};
 
@@ -1033,24 +1087,174 @@
 
             return data;
         }
-        function updateRange() {
-            const mode = getDateRangeMode();
-            if (!mode) return;
 
-            if (mode === "week") {
-                baseRows = generateFakeData(7);
+        function groupByMonth(rows) {
+
+            const months = {};
+
+            rows.forEach(r => {
+
+                const m = r.date.slice(0, 7);
+
+                if (!months[m]) {
+                    months[m] = { label: m, est_events: 0, km_day: 0, km_night: 0 };
+                }
+
+                months[m].est_events += r.est_events;
+                months[m].km_day += r.km_day;
+                months[m].km_night += r.km_night;
+
+            });
+
+            return Object.values(months);
+
+        }
+
+
+        function updateRange(start, end, diff) {
+
+            const days = Math.floor(diff) + 1;
+
+            if (days <= 10) {
+
+                baseRows = generateFakeData(days);
+
                 currentRows = baseRows.map(r => ({
                     ...r,
                     label: r.date.slice(5)
                 }));
-            } else {
-                baseRows = generateFakeData(30);
+
+            }
+
+            else if (days <= 60) {
+
+                baseRows = generateFakeData(days);
+
                 currentRows = groupByWeek(baseRows);
+
+            }
+
+            else {
+
+                baseRows = generateFakeData(days);
+
+                currentRows = groupByMonth(baseRows);
+
             }
 
             renderDailyChart(currentRows);
             renderJourneyChart(currentRows);
+
         }
+
+function generateRecommendations(agg) {
+    const container = document.getElementById("recommendations");
+    if (!container) return;
+
+    const rec = [];
+    const rows = agg.rows || [];
+    const T = agg.T || 0;
+    const irp = agg.IRP || 0;
+
+    let totalAccel = 0;
+    let totalBrake = 0;
+    let totalTurns = 0;
+    let totalSevere = 0;
+    let totalCritical = 0;
+    let totalModerate = 0;
+
+    rows.forEach(v => {
+        totalAccel += +v.hard_accel || 0;
+        totalBrake += +v.hard_brake || 0;
+        totalTurns += +v.aggressive_turns || 0;
+        totalSevere += +v.speed_severe || 0;
+        totalCritical += +v.speed_critical || 0;
+        totalModerate += +v.speed_moderate || 0;
+    });
+
+    function buildImpactText(count, tipo, impactoPorEvento) {
+        if (!T || count <= 0) return "";
+        const reducir = Math.max(1, Math.round(count * 0.1));
+        const nuevoIRP = Math.max(0, irp - (reducir * impactoPorEvento));
+        return `<br><br>Si reduce <b>${reducir}</b> incidentes de <b>${tipo}</b>, su IRP bajaría aproximadamente a <b>${fmt(nuevoIRP, 1)}</b>.`;
+    }
+
+    rec.push(
+        totalAccel > 0
+            ? `Se detectan <b>${fmt0(totalAccel)}</b> aceleraciones bruscas. Se recomienda reforzar hábitos de arranque progresivo para reducir desgaste mecánico y riesgo.${buildImpactText(totalAccel, "Aceleraciones bruscas", 50 / T)}`
+            : `No se observan aceleraciones bruscas relevantes; conviene mantener la política actual de conducción suave.`
+    );
+
+    rec.push(
+        totalBrake > 0
+            ? `Se registran <b>${fmt0(totalBrake)}</b> frenados bruscos. Se recomienda activar alertas preventivas y reforzar distancia de seguimiento.${buildImpactText(totalBrake, "Frenados bruscos", 50 / T)}`
+            : `No se observan frenados bruscos relevantes; mantener la política actual de anticipación y seguimiento seguro.`
+    );
+
+    rec.push(
+        totalTurns > 0
+            ? `Se observan <b>${fmt0(totalTurns)}</b> curvas agresivas. Conviene reforzar conducción defensiva en zonas urbanas y carreteras sinuosas.${buildImpactText(totalTurns, "Curvas agresivas", 75 / T)}`
+            : `No hay evidencia relevante de curvas agresivas; mantener seguimiento en rutas de mayor complejidad.`
+    );
+
+    rec.push(
+        totalModerate > 0
+            ? `Se identifican <b>${fmt0(totalModerate)}</b> excesos moderados de velocidad. Se recomienda retroalimentación semanal por operador y control de límites por tramo.${buildImpactText(totalModerate, "Excesos moderados de velocidad", 60 / T)}`
+            : `Los excesos moderados de velocidad son nulos o marginales en la selección actual.`
+    );
+
+    rec.push(
+        totalSevere > 0
+            ? `Se registran <b>${fmt0(totalSevere)}</b> excesos graves de velocidad. Este componente tiene impacto directo en el IRP y debe priorizarse con alertamiento en tiempo real.${buildImpactText(totalSevere, "Excesos graves de velocidad", 180 / T)}`
+            : `No se observan excesos graves de velocidad en la selección actual.`
+    );
+
+    rec.push(
+        totalCritical > 0
+            ? `Se detectan <b>${fmt0(totalCritical)}</b> excesos críticos de velocidad. Se recomienda intervención inmediata, revisión de operadores y protocolo disciplinario.${buildImpactText(totalCritical, "Excesos críticos de velocidad", 360 / T)}`
+            : `No se identifican excesos críticos de velocidad, lo cual reduce exposición a siniestros severos.`
+    );
+
+    const daysForAvg = currentRows && currentRows.length ? currentRows.length : 10;
+    const vehicles = agg.rows.length || 1;
+    const avgHoursPerVehiclePerDay = agg.engine / vehicles / Math.max(daysForAvg, 1);
+
+    if (avgHoursPerVehiclePerDay > 8) {
+        rec.push(`El promedio de operación es de <b>${fmt(avgHoursPerVehiclePerDay, 1)} horas por vehículo por día</b>, por encima de 8 horas. Esto puede elevar fatiga operativa y aumentar el IRP.`);
+    } else {
+        rec.push(`El promedio de operación es de <b>${fmt(avgHoursPerVehiclePerDay, 1)} horas por vehículo por día</b>, dentro de un rango operativo más controlado.`);
+    }
+
+    const exposureMap = new Map();
+    rows.forEach(v => {
+        stateData
+            .filter(s => s.Vehículo === v.Vehículo)
+            .forEach(s => {
+                const key = s.state || "Sin estado";
+                if (!exposureMap.has(key)) {
+                    exposureMap.set(key, { state: key, km: 0, risk: +s.risk_index || 0 });
+                }
+                const row = exposureMap.get(key);
+                row.km += +s.km || 0;
+                row.risk = +s.risk_index || row.risk;
+            });
+    });
+
+    const topExposure = Array.from(exposureMap.values())
+        .sort((a, b) => (b.km * b.risk) - (a.km * a.risk))[0];
+
+    if (topExposure) {
+        rec.push(`Dada la exposición acumulada en <b>${topExposure.state}</b>, se recomienda aplicar monitoreo en tiempo real, validación de paradas seguras, geocercas y protocolo reforzado de comunicación con cabina.`);
+    }
+
+    rec.push(`Conviene reducir kilómetros en rutas no rutinarias mediante planeación previa y validación de trayectos frecuentes, ya que ese componente también presiona el IRP.`);
+    rec.push(`Se recomienda una revisión mensual del desempeño por operador y vehículo para identificar reincidencias y sostener una reducción progresiva del IRP.`);
+
+    container.innerHTML = rec
+        .slice(0, 10)
+        .map(r => `<div style="margin-bottom:10px;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);line-height:1.5">· ${r}</div>`)
+        .join("");
+}
 
         allBtn.onclick = () => {
             Array.from(select.options).forEach(o => o.selected = true);
@@ -1067,12 +1271,18 @@
         };
         select.addEventListener('change', refresh);
 
-        document.getElementById("startDate").addEventListener("change", updateRange);
-        document.getElementById("endDate").addEventListener("change", updateRange);
 
 
         fillVehicles();
         refresh();
+
+        const initialDates = datePicker.selectedDates || [];
+        if (initialDates.length === 2) {
+            const start = initialDates[0];
+            const end = initialDates[1];
+            const diff = (end - start) / (1000 * 60 * 60 * 24);
+            updateRange(start, end, diff);
+        }
 
         function getPredictiveInsight(agg) {
             const T = agg.T || 0;
@@ -1112,7 +1322,7 @@
             const top = impactos[0];
 
             if (!top || top.count <= 0) {
-                return `<br><br>No se identifican incidentes de conducción con impacto directo suficiente para proyectar una reducción adicional del IRP en la selección actual.`;
+                return `<br><br> No se identifican incidentes de conducción con impacto directo suficiente para proyectar una reducción adicional del IRP en la selección actual.`;
             }
 
             const reducir = Math.max(1, Math.round(top.count * 0.1));
