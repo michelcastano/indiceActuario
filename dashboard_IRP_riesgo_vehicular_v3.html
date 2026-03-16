@@ -699,6 +699,10 @@
         const clearBtn = document.getElementById('clearBtn');
         const topRiskBtn = document.getElementById('topRiskBtn');
 
+let baseRows = [];
+let currentRows = [];
+
+
         function fmt(n, d = 1) {
             if (!isFinite(n)) return '-';
             return new Intl.NumberFormat('es-MX', { minimumFractionDigits: d, maximumFractionDigits: d }).format(n);
@@ -977,6 +981,59 @@
 
             return Object.values(weeks);
         }
+
+function getRangeMode() {
+
+  const s = new Date(document.getElementById("startDate").value);
+  const e = new Date(document.getElementById("endDate").value);
+
+  if (!s || !e || isNaN(s) || isNaN(e)) return "week";
+
+  const diff = (e - s) / (1000 * 60 * 60 * 24);
+
+  if (diff <= 10) return "week";
+  return "month";
+}
+
+function generateFakeData(days){
+
+  const data = [];
+
+  for(let i=0;i<days;i++){
+
+    const d = new Date();
+    d.setDate(d.getDate()-days+i);
+
+    data.push({
+      date: d.toISOString().slice(0,10),
+      est_events: Math.floor(4 + Math.random()*10),
+      km_day: 80 + Math.random()*120,
+      km_night: 20 + Math.random()*60
+    });
+
+  }
+
+  return data;
+}
+
+function updateRange(){
+
+  const mode = getRangeMode();
+
+  if(mode==="week"){
+      baseRows = generateFakeData(7);
+      currentRows = baseRows;
+  }
+
+  if(mode==="month"){
+      baseRows = generateFakeData(30);
+      currentRows = groupByWeek(baseRows);
+  }
+
+  renderDailyChart(currentRows);
+
+}
+
         allBtn.onclick = () => {
             Array.from(select.options).forEach(o => o.selected = true);
             refresh();
@@ -991,6 +1048,10 @@
             refresh();
         };
         select.addEventListener('change', refresh);
+
+document.getElementById("startDate").addEventListener("change",updateRange);
+document.getElementById("endDate").addEventListener("change",updateRange);
+
 
         fillVehicles();
         refresh();
