@@ -475,6 +475,22 @@
         .quick-ranges button:hover {
             background: #334155;
         }
+
+        .irp-bar {
+            margin-top: 10px;
+            height: 10px;
+            width: 100%;
+            background: rgba(255, 255, 255, .08);
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        #irpBarFill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #22c55e, #eab308, #ef4444);
+            transition: width .4s ease;
+        }
     </style>
 </head>
 
@@ -535,6 +551,9 @@
                 </div>
 
                 <div class="kpi-sub" id="IRPSub">Escala 0 a 100</div>
+                <div class="irp-bar">
+                    <div id="irpBarFill"></div>
+                </div>
             </div>
             <div class="panel card">
 
@@ -682,13 +701,14 @@
                 </table>
             </div>
             <div class="panel table-wrap">
-                <div class="section-title">Top estados por exposición</div>
+                <div class="section-title">Utilización de la Flota por Estado Mexicano</div>
                 <table>
                     <thead>
                         <tr>
                             <th>Estado</th>
-                            <th>Distancia Km</th>
-                            <th>Riesgo estatal</th>
+                            <th>Distancia KM</th>
+                            <th>% del Total</th>
+                            <th>Índice de Riesgo</th>
                         </tr>
                     </thead>
                     <tbody id="stateBody"></tbody>
@@ -719,7 +739,7 @@
             </div>
         </div>
         <div class="panel card">
-            <div class="section-title">Recomendaciones</div>
+            <div class="section-title">Recomendaciones para incrementar su descuento en la Prima:</div>
             <div id="recommendations"></div>
         </div>
     </div>
@@ -1007,7 +1027,20 @@
                 row.risk_index = +s.risk_index || row.risk_index || 0;
             });
             const rows = Array.from(map.values()).sort((a, b) => b.km - a.km).slice(0, 10);
-            document.getElementById('stateBody').innerHTML = rows.map(r => `<tr><td>${r.state}</td><td>${fmt0(r.km)}</td><td>${fmt(r.risk_index, 1)}</td></tr>`).join('');
+            const totalKm = rows.reduce((sum, r) => sum + r.km, 0) || 1;
+document.getElementById('stateBody').innerHTML = rows.map(r => {
+
+    const pct = (r.km / totalKm) * 100;
+
+    return `
+    <tr>
+        <td>${r.state}</td>
+        <td>${fmt0(r.km)}</td>
+        <td>${fmt(pct,1)}%</td>
+        <td>${fmt(r.risk_index, 1)}</td>
+    </tr>
+    `;
+}).join('');
         }
         function refresh() {
             const selected = selectedVehicles();
@@ -1147,114 +1180,120 @@
 
         }
 
-function generateRecommendations(agg) {
-    const container = document.getElementById("recommendations");
-    if (!container) return;
+        function generateRecommendations(agg) {
+            const container = document.getElementById("recommendations");
+            if (!container) return;
 
-    const rec = [];
-    const rows = agg.rows || [];
-    const T = agg.T || 0;
-    const irp = agg.IRP || 0;
+            const rec = [];
+            const rows = agg.rows || [];
+            const T = agg.T || 0;
+            const irp = agg.IRP || 0;
 
-    let totalAccel = 0;
-    let totalBrake = 0;
-    let totalTurns = 0;
-    let totalSevere = 0;
-    let totalCritical = 0;
-    let totalModerate = 0;
-
-    rows.forEach(v => {
-        totalAccel += +v.hard_accel || 0;
-        totalBrake += +v.hard_brake || 0;
-        totalTurns += +v.aggressive_turns || 0;
-        totalSevere += +v.speed_severe || 0;
-        totalCritical += +v.speed_critical || 0;
-        totalModerate += +v.speed_moderate || 0;
-    });
-
-    function buildImpactText(count, tipo, impactoPorEvento) {
-        if (!T || count <= 0) return "";
-        const reducir = Math.max(1, Math.round(count * 0.1));
-        const nuevoIRP = Math.max(0, irp - (reducir * impactoPorEvento));
-        return `<br><br>Si reduce <b>${reducir}</b> incidentes de <b>${tipo}</b>, su IRP bajaría aproximadamente a <b>${fmt(nuevoIRP, 1)}</b>.`;
-    }
-
-    rec.push(
-        totalAccel > 0
-            ? `Se detectan <b>${fmt0(totalAccel)}</b> aceleraciones bruscas. Se recomienda reforzar hábitos de arranque progresivo para reducir desgaste mecánico y riesgo.${buildImpactText(totalAccel, "Aceleraciones bruscas", 50 / T)}`
-            : `No se observan aceleraciones bruscas relevantes; conviene mantener la política actual de conducción suave.`
-    );
-
-    rec.push(
-        totalBrake > 0
-            ? `Se registran <b>${fmt0(totalBrake)}</b> frenados bruscos. Se recomienda activar alertas preventivas y reforzar distancia de seguimiento.${buildImpactText(totalBrake, "Frenados bruscos", 50 / T)}`
-            : `No se observan frenados bruscos relevantes; mantener la política actual de anticipación y seguimiento seguro.`
-    );
-
-    rec.push(
-        totalTurns > 0
-            ? `Se observan <b>${fmt0(totalTurns)}</b> curvas agresivas. Conviene reforzar conducción defensiva en zonas urbanas y carreteras sinuosas.${buildImpactText(totalTurns, "Curvas agresivas", 75 / T)}`
-            : `No hay evidencia relevante de curvas agresivas; mantener seguimiento en rutas de mayor complejidad.`
-    );
-
-    rec.push(
-        totalModerate > 0
-            ? `Se identifican <b>${fmt0(totalModerate)}</b> excesos moderados de velocidad. Se recomienda retroalimentación semanal por operador y control de límites por tramo.${buildImpactText(totalModerate, "Excesos moderados de velocidad", 60 / T)}`
-            : `Los excesos moderados de velocidad son nulos o marginales en la selección actual.`
-    );
-
-    rec.push(
-        totalSevere > 0
-            ? `Se registran <b>${fmt0(totalSevere)}</b> excesos graves de velocidad. Este componente tiene impacto directo en el IRP y debe priorizarse con alertamiento en tiempo real.${buildImpactText(totalSevere, "Excesos graves de velocidad", 180 / T)}`
-            : `No se observan excesos graves de velocidad en la selección actual.`
-    );
-
-    rec.push(
-        totalCritical > 0
-            ? `Se detectan <b>${fmt0(totalCritical)}</b> excesos críticos de velocidad. Se recomienda intervención inmediata, revisión de operadores y protocolo disciplinario.${buildImpactText(totalCritical, "Excesos críticos de velocidad", 360 / T)}`
-            : `No se identifican excesos críticos de velocidad, lo cual reduce exposición a siniestros severos.`
-    );
-
-    const daysForAvg = currentRows && currentRows.length ? currentRows.length : 10;
-    const vehicles = agg.rows.length || 1;
-    const avgHoursPerVehiclePerDay = agg.engine / vehicles / Math.max(daysForAvg, 1);
-
-    if (avgHoursPerVehiclePerDay > 8) {
-        rec.push(`El promedio de operación es de <b>${fmt(avgHoursPerVehiclePerDay, 1)} horas por vehículo por día</b>, por encima de 8 horas. Esto puede elevar fatiga operativa y aumentar el IRP.`);
-    } else {
-        rec.push(`El promedio de operación es de <b>${fmt(avgHoursPerVehiclePerDay, 1)} horas por vehículo por día</b>, dentro de un rango operativo más controlado.`);
-    }
-
-    const exposureMap = new Map();
-    rows.forEach(v => {
-        stateData
-            .filter(s => s.Vehículo === v.Vehículo)
-            .forEach(s => {
-                const key = s.state || "Sin estado";
-                if (!exposureMap.has(key)) {
-                    exposureMap.set(key, { state: key, km: 0, risk: +s.risk_index || 0 });
-                }
-                const row = exposureMap.get(key);
-                row.km += +s.km || 0;
-                row.risk = +s.risk_index || row.risk;
-            });
-    });
-
-    const topExposure = Array.from(exposureMap.values())
-        .sort((a, b) => (b.km * b.risk) - (a.km * a.risk))[0];
-
-    if (topExposure) {
-        rec.push(`Dada la exposición acumulada en <b>${topExposure.state}</b>, se recomienda aplicar monitoreo en tiempo real, validación de paradas seguras, geocercas y protocolo reforzado de comunicación con cabina.`);
-    }
-
-    rec.push(`Conviene reducir kilómetros en rutas no rutinarias mediante planeación previa y validación de trayectos frecuentes, ya que ese componente también presiona el IRP.`);
-    rec.push(`Se recomienda una revisión mensual del desempeño por operador y vehículo para identificar reincidencias y sostener una reducción progresiva del IRP.`);
-
-    container.innerHTML = rec
-        .slice(0, 10)
-        .map(r => `<div style="margin-bottom:10px;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);line-height:1.5">· ${r}</div>`)
-        .join("");
+const bar = document.getElementById("irpBarFill");
+if(bar){
+    bar.style.width = Math.min(irp,100) + "%";
 }
+
+            let totalAccel = 0;
+            let totalBrake = 0;
+            let totalTurns = 0;
+            let totalSevere = 0;
+            let totalCritical = 0;
+            let totalModerate = 0;
+
+            rows.forEach(v => {
+                totalAccel += +v.hard_accel || 0;
+                totalBrake += +v.hard_brake || 0;
+                totalTurns += +v.aggressive_turns || 0;
+                totalSevere += +v.speed_severe || 0;
+                totalCritical += +v.speed_critical || 0;
+                totalModerate += +v.speed_moderate || 0;
+            });
+
+            function buildImpactText(count, tipo, impactoPorEvento) {
+                if (!T || count <= 0) return "";
+                const reducir = Math.max(1, Math.round(count * 0.1));
+                const nuevoIRP = Math.max(0, irp - (reducir * impactoPorEvento));
+                return `Si reduce <b>${reducir}</b> incidentes de <b>${tipo}</b>, su IRP bajaría aproximadamente a <b>${fmt(nuevoIRP, 1)}</b>.<br>`;
+            }
+
+            rec.push(
+                totalAccel > 0
+                    ? `Se detectan <b>${fmt0(totalAccel)}</b> aceleraciones bruscas. Se recomienda reforzar hábitos de arranque progresivo para reducir desgaste mecánico y riesgo.${buildImpactText(totalAccel, "Aceleraciones bruscas", 50 / T)}`
+                    : `No se observan aceleraciones bruscas relevantes; conviene mantener la política actual de conducción suave.<br>`
+            );
+
+            rec.push(
+                totalBrake > 0
+                    ? `Se registran <b>${fmt0(totalBrake)}</b> frenados bruscos. Se recomienda activar alertas preventivas y reforzar distancia de seguimiento.${buildImpactText(totalBrake, "Frenados bruscos", 50 / T)}`
+                    : `No se observan frenados bruscos relevantes; mantener la política actual de anticipación y seguimiento seguro.`
+            );
+
+            rec.push(
+                totalTurns > 0
+                    ? `Se observan <b>${fmt0(totalTurns)}</b> curvas agresivas. Conviene reforzar conducción defensiva en zonas urbanas y carreteras sinuosas.${buildImpactText(totalTurns, "Curvas agresivas", 75 / T)}`
+                    : `No hay evidencia relevante de curvas agresivas; mantener seguimiento en rutas de mayor complejidad.`
+            );
+
+            rec.push(
+                totalModerate > 0
+                    ? `Se identifican <b>${fmt0(totalModerate)}</b> excesos moderados de velocidad. Se recomienda retroalimentación semanal por operador y control de límites por tramo.${buildImpactText(totalModerate, "Excesos moderados de velocidad", 60 / T)}`
+                    : `Los excesos moderados de velocidad son nulos o marginales en la selección actual.`
+            );
+
+            rec.push(
+                totalSevere > 0
+                    ? `Se registran <b>${fmt0(totalSevere)}</b> excesos graves de velocidad. Este componente tiene impacto directo en el IRP y debe priorizarse con alertamiento en tiempo real.${buildImpactText(totalSevere, "Excesos graves de velocidad", 180 / T)}`
+                    : `No se observan excesos graves de velocidad en la selección actual.`
+            );
+
+            rec.push(
+                totalCritical > 0
+                    ? `Se detectan <b>${fmt0(totalCritical)}</b> excesos críticos de velocidad. Se recomienda intervención inmediata, revisión de operadores y protocolo disciplinario.${buildImpactText(totalCritical, "Excesos críticos de velocidad", 360 / T)}`
+                    : `No se identifican excesos críticos de velocidad, lo cual reduce exposición a siniestros severos.`
+            );
+
+            const daysForAvg = currentRows && currentRows.length ? currentRows.length : 10;
+            const vehicles = agg.rows.length || 1;
+            const avgHoursPerVehiclePerDay = agg.engine / vehicles / Math.max(daysForAvg, 1);
+
+            if (avgHoursPerVehiclePerDay > 8) {
+                rec.push(`El promedio de operación es de <b>${fmt(avgHoursPerVehiclePerDay, 1)} horas por vehículo por día</b>, por encima de 8 horas. Esto puede elevar fatiga operativa y aumentar el IRP.`);
+            } else {
+                rec.push(`El promedio de operación es de <b>${fmt(avgHoursPerVehiclePerDay, 1)} horas por vehículo por día</b>, dentro de un rango operativo más controlado.`);
+            }
+
+            const exposureMap = new Map();
+            rows.forEach(v => {
+                stateData
+                    .filter(s => s.Vehículo === v.Vehículo)
+                    .forEach(s => {
+                        const key = s.state || "Sin estado";
+                        if (!exposureMap.has(key)) {
+                            exposureMap.set(key, { state: key, km: 0, risk: +s.risk_index || 0 });
+                        }
+                        const row = exposureMap.get(key);
+                        row.km += +s.km || 0;
+                        row.risk = +s.risk_index || row.risk;
+                    });
+            });
+
+            const topExposure = Array.from(exposureMap.values())
+                .sort((a, b) => (b.km * b.risk) - (a.km * a.risk))[0];
+
+            if (topExposure) {
+                rec.push(`Dada la exposición acumulada en <b>${topExposure.state}</b>, se recomienda aplicar monitoreo en tiempo real, validación de paradas seguras, geocercas y protocolo reforzado de comunicación con cabina.`);
+            }
+
+            rec.push(`Conviene reducir kilómetros en rutas no rutinarias mediante planeación previa y validación de trayectos frecuentes, ya que ese componente también presiona el IRP.`);
+            rec.push(`Se recomienda una revisión mensual del desempeño por operador y vehículo para identificar reincidencias y sostener una reducción progresiva del IRP.`);
+
+            container.innerHTML = `
+<ul style="padding-left:18px;margin:0;line-height:1.6;color:#cfd7f5">
+${rec.slice(0, 10).map(r => `<li style="margin-bottom:6px">${r}</li>`).join("")}
+</ul>
+`;
+        }
 
         allBtn.onclick = () => {
             Array.from(select.options).forEach(o => o.selected = true);
@@ -1328,7 +1367,7 @@ function generateRecommendations(agg) {
             const reducir = Math.max(1, Math.round(top.count * 0.1));
             const nuevoIRP = Math.max(0, irp - (reducir * top.impacto));
 
-            return `<br><br>Si reduce <b>${reducir}</b> incidentes de <b>${top.tipo}</b>, su IRP bajaría aproximadamente a <b>${fmt(nuevoIRP, 1)}</b>.`;
+            return `Si reduce <b>${reducir}</b> incidentes de <b>${top.tipo}</b>, su IRP bajaría aproximadamente a <b>${fmt(nuevoIRP, 1)}</b>.<br><br>`;
         }
     </script>
 </body>
