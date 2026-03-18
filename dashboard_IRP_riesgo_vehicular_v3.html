@@ -491,6 +491,34 @@
             background: linear-gradient(90deg, #22c55e, #eab308, #ef4444);
             transition: width .4s ease;
         }
+
+.irp-bar-wrapper{
+  margin-top:12px;
+}
+
+.irp-labels{
+  display:flex;
+  justify-content:space-between;
+  font-size:11px;
+  margin-top:6px;
+  letter-spacing:.3px;
+ 
+}
+
+.irp-labels .low{
+  color:#22c55e;   
+  font-weight:600;
+}
+
+.irp-labels .high{
+  color:#ef4444;  
+  font-weight:600;
+}
+.irp-labels span{
+  opacity:1 !important;
+  visibility:visible !important;
+}
+
     </style>
 </head>
 
@@ -551,9 +579,18 @@
                 </div>
 
                 <div class="kpi-sub" id="IRPSub">Escala 0 a 100</div>
-                <div class="irp-bar">
-                    <div id="irpBarFill"></div>
-                </div>
+<div class="irp-bar-wrapper">
+
+    <div class="irp-bar">
+        <div id="irpBarFill"></div>
+    </div>
+
+    <div class="irp-labels">
+        <span class="low">Bajo</span>
+        <span class="high">Alto</span>
+    </div>
+
+</div>
             </div>
             <div class="panel card">
 
@@ -1028,19 +1065,19 @@
             });
             const rows = Array.from(map.values()).sort((a, b) => b.km - a.km).slice(0, 10);
             const totalKm = rows.reduce((sum, r) => sum + r.km, 0) || 1;
-document.getElementById('stateBody').innerHTML = rows.map(r => {
+            document.getElementById('stateBody').innerHTML = rows.map(r => {
 
-    const pct = (r.km / totalKm) * 100;
+                const pct = (r.km / totalKm) * 100;
 
-    return `
+                return `
     <tr>
         <td>${r.state}</td>
         <td>${fmt0(r.km)}</td>
-        <td>${fmt(pct,1)}%</td>
+        <td>${fmt(pct, 1)}%</td>
         <td>${fmt(r.risk_index, 1)}</td>
     </tr>
     `;
-}).join('');
+            }).join('');
         }
         function refresh() {
             const selected = selectedVehicles();
@@ -1189,10 +1226,10 @@ document.getElementById('stateBody').innerHTML = rows.map(r => {
             const T = agg.T || 0;
             const irp = agg.IRP || 0;
 
-const bar = document.getElementById("irpBarFill");
-if(bar){
-    bar.style.width = Math.min(irp,100) + "%";
-}
+            const bar = document.getElementById("irpBarFill");
+            if (bar) {
+                bar.style.width = Math.min(irp, 100) + "%";
+            }
 
             let totalAccel = 0;
             let totalBrake = 0;
